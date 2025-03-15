@@ -1,5 +1,3 @@
-'use client';
-
 import { FileViewer } from '@/components/file/file-viewer';
 
 interface FileViewerPageProps {
