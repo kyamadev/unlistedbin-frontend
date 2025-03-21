@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -44,10 +44,11 @@ export function SignupForm() {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isValid },
     watch,
     setError: setFormError,
     clearErrors,
+    trigger,
   } = useForm<z.infer<typeof signupSchema>>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
@@ -56,9 +57,18 @@ export function SignupForm() {
       password: '',
       confirmPassword: '',
     },
+    mode: 'onChange',
   });
 
+  const usernameField = register('username');
   const username = watch('username');
+  
+  // ユーザー名が変更されたときにエラーをクリア
+  useEffect(() => {
+    if (username.length >= 3) {
+      clearErrors('username');
+    }
+  }, [username, clearErrors]);
 
   // ユーザー名の可用性をチェック
   const checkUsernameAvailability = async () => {
@@ -77,7 +87,10 @@ export function SignupForm() {
           message: 'このユーザー名は既に使用されています' 
         });
       } else {
+        // ユーザー名が利用可能な場合は明示的にエラーをクリア
         clearErrors('username');
+        // 他のフィールドの検証を再実行
+        trigger();
       }
     } catch (err) {
       console.error('ユーザー名チェックエラー:', err);
@@ -87,6 +100,9 @@ export function SignupForm() {
   };
 
   const onSubmit = async (data: z.infer<typeof signupSchema>) => {
+    // フォームが有効でなければ処理を中断
+    if (!isValid) return;
+    
     setIsLoading(true);
     setError(null);
     setSuccess(false);
@@ -157,17 +173,23 @@ export function SignupForm() {
         <div className="space-y-2">
           <Label htmlFor="username">ユーザー名</Label>
           <div className="relative">
-            <Input
-              id="username"
-              placeholder="ユーザー名を入力"
-              {...register('username')}
-              onBlur={checkUsernameAvailability}
-              onChange={() => {
-                if (isUsernameAvailable !== null) {
-                  setIsUsernameAvailable(null);
-                }
-              }}
-            />
+          <Input
+            id="username"
+            placeholder="ユーザー名を入力"
+            {...usernameField}
+            onBlur={(e) => {
+              // react-hook-form の onBlur を呼び出す
+              usernameField.onBlur(e);
+              // その後、ユーザー名の可用性チェックを実行
+              checkUsernameAvailability();
+            }}
+            onChange={(e) => {
+              usernameField.onChange(e);
+              if (isUsernameAvailable !== null) {
+                setIsUsernameAvailable(null);
+              }
+            }}
+          />
             {isCheckingUsername && (
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                 <div className="h-4 w-4 border-2 border-t-transparent border-blue-500 rounded-full animate-spin"></div>
@@ -225,7 +247,11 @@ export function SignupForm() {
           )}
         </div>
         
-        <Button type="submit" className="w-full" disabled={isLoading}>
+        <Button 
+          type="submit" 
+          className="w-full" 
+          disabled={isLoading || (username.length >= 3 && isUsernameAvailable === false)}
+        >
           {isLoading ? '登録中...' : 'アカウント作成'}
         </Button>
       </form>
