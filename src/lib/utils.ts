@@ -27,12 +27,10 @@ export function formatDate(date: string | Date): string {
   });
 }
 
-// URLの生成
 export function generateRepoUrl(username: string, uuid: string): string {
   return `/${username}/${uuid}`;
 }
 
-// ファイル拡張子からアイコン名を取得
 export function getFileIconByExtension(filename: string): string {
   const extension = filename.split('.').pop()?.toLowerCase() || '';
   

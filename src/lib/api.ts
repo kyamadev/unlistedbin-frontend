@@ -4,7 +4,6 @@ import { fetchAuthSession } from '@aws-amplify/auth';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 const AUTH_TYPE = process.env.NEXT_PUBLIC_AUTH_TYPE || 'session';
 
-// 認証ヘッダーの取得
 const getAuthHeaders = async () => {
   if (AUTH_TYPE === 'cognito') {
     try {
@@ -24,24 +23,30 @@ const getAuthHeaders = async () => {
   return {};
 };
 
-// 汎用APIクライアント
 const api = axios.create({
   baseURL: API_URL,
   withCredentials: true, // セッションCookieを使用
 });
 
-// リクエストインターセプター
 api.interceptors.request.use(async (config) => {
   if (AUTH_TYPE === 'cognito') {
-    const headers = await getAuthHeaders();
-    if (headers.Authorization) {
-      config.headers.Authorization = headers.Authorization;
+    try {
+      const session = await fetchAuthSession();
+      const token = session.tokens?.idToken?.toString();
+      
+      if (token) {
+        console.log('Adding auth token to request');
+        config.headers.Authorization = `Bearer ${token}`;
+      } else {
+        console.log('No auth token available');
+      }
+    } catch (error) {
+      console.error('Error fetching auth session:', error);
     }
   }
   return config;
 });
 
-// リポジトリ型定義
 export interface Repository {
   id?: number;
   uuid: string;
@@ -52,14 +57,12 @@ export interface Repository {
   updated_at?: string;
 }
 
-// ファイル型定義
 export interface FileEntry {
   name: string;
   isDirectory: boolean;
   path: string;
 }
 
-// ディレクトリ内容型定義
 export interface DirectoryContents {
   username: string;
   repo_uuid: string;
@@ -68,7 +71,6 @@ export interface DirectoryContents {
   isDirectory: true;
 }
 
-// ファイル内容型定義
 export interface FileContents {
   username: string;
   repo_uuid: string;
@@ -77,35 +79,28 @@ export interface FileContents {
   isDirectory: false;
 }
 
-// リポジトリAPI
 export const repositoryApi = {
-  // リポジトリ一覧取得
   getRepositories: async (): Promise<Repository[]> => {
     const response = await api.get('/repositories');
     return response.data;
   },
 
-  // リポジトリ作成
   createRepository: async (data: { name: string; public: boolean }): Promise<Repository> => {
     const response = await api.post('/repositories', data);
     return response.data;
   },
 
-  // リポジトリ可視性更新
   updateVisibility: async (uuid: string, isPublic: boolean): Promise<Repository> => {
     const response = await api.put(`/repositories/${uuid}/visibility`, { public: isPublic });
     return response.data;
   },
 
-  // リポジトリ削除
   deleteRepository: async (uuid: string): Promise<void> => {
     await api.delete(`/repositories/${uuid}`);
   },
 };
 
-// ファイルAPI
 export const fileApi = {
-  // ファイル・ディレクトリの内容取得
   getContents: async (username: string, repoUuid: string, path: string = ''): Promise<FileContents | DirectoryContents> => {
     const response = await api.get(`/${username}/${repoUuid}/${path}`);
     return response.data;

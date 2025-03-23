@@ -106,7 +106,7 @@ export function SignupForm() {
     setIsLoading(true);
     setError(null);
     setSuccess(false);
-
+  
     try {
       // ユーザー名の可用性を最終確認
       const isAvailable = await checkUsername(data.username);
@@ -115,12 +115,13 @@ export function SignupForm() {
         setIsLoading(false);
         return;
       }
-
+  
       const result = await signup(data.username, data.password, data.email);
       
       if (result.success) {
         if (AUTH_TYPE === 'cognito') {
-          setSuccess(true);
+          // Cognitoの場合は確認ページにリダイレクト
+          router.push(`/confirm?username=${encodeURIComponent(data.username)}`);
         } else {
           // セッション認証の場合は直接ログインページへ
           router.push('/login?registered=1');

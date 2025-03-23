@@ -23,13 +23,10 @@ import {
   fetchAuthSession,
 } from 'aws-amplify/auth';
 
-// 認証タイプの設定
 const AUTH_TYPE = process.env.NEXT_PUBLIC_AUTH_TYPE || 'session';
 
-// APIのベースURL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
-// Cognitoの設定（Cognitoを使用する場合）
 if (AUTH_TYPE === 'cognito') {
   const userPoolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID;
   const userPoolClientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID;
@@ -47,19 +44,18 @@ if (AUTH_TYPE === 'cognito') {
         }
       }
     });
+    console.log('Cognito configured with:', { userPoolId, userPoolClientId });
   } else {
-    console.warn('Cognito credentials not found. Cognito authentication will be disabled.');
+    console.warn('Missing Cognito configuration:', { userPoolId, userPoolClientId });
   }
 }
 
-// ユーザータイプ定義
 export interface User {
   id?: string;
   username: string;
   email?: string;
 }
 
-// 認証コンテキストの型定義
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -71,17 +67,13 @@ interface AuthContextType {
   updateUsername: (newUsername: string) => Promise<{ success: boolean; error?: string }>;
   deleteAccount: () => Promise<boolean>;
   confirmSignUp?: (username: string, code: string) => Promise<{ success: boolean; error?: string }>;
-  // パスワードリセット関連の機能
   resetPassword?: (username: string) => Promise<{ success: boolean; error?: string; destination?: string }>;
   confirmResetPassword?: (username: string, code: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
-  // パスワード変更
   changePassword?: (oldPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
-// 認証コンテキストの作成
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// 認証プロバイダーコンポーネント
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -108,7 +100,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Cognito認証
   const cognitoLogin = async (username: string, password: string) => {
     try {
-      // Amplify v6の新しいサインインフォーマット
       await amplifySignIn({
         username,
         password,
@@ -156,21 +147,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // サインアップ確認（Cognito用）
-  const confirmSignUp = async (username: string, code: string) => {
-    if (AUTH_TYPE !== 'cognito') {
-      return { success: false, error: 'この機能はCognito認証でのみ使用できます' };
-    }
-    
-    try {
-      await amplifyConfirmSignUp({ username, confirmationCode: code });
-      return { success: true };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message || '確認コードの検証に失敗しました',
-      };
-    }
-  };
+const confirmSignUp = async (username: string, code: string) => {
+  if (AUTH_TYPE !== 'cognito') {
+    return { success: false, error: 'この機能はCognito認証でのみ使用できます' };
+  }
+  
+  try {
+    console.log(`Confirming signup for user: ${username} with code: ${code}`);
+    const result = await amplifyConfirmSignUp({
+      username,
+      confirmationCode: code
+    });
+    console.log('Confirmation result:', result);
+    return { success: true };
+  } catch (error: any) {
+    console.error('Confirmation error:', error);
+    return {
+      success: false,
+      error: error.message || '確認コードの検証に失敗しました',
+    };
+  }
+};
 
 // パスワードリセット要求
 const resetPassword = async (username: string) => {
@@ -269,23 +266,26 @@ const resetPassword = async (username: string) => {
   // Cognitoサインアップ
   const cognitoSignup = async (username: string, password: string, email: string) => {
     try {
-      // Amplify v6の新しいサインアップフォーマット
-      await amplifySignUp({
-        username: email, // Cognitoではemailをusernameとして使用
+      console.log('Attempting Cognito signup with:', { username, email });
+      
+      const result = await amplifySignUp({
+        username: username,
         password,
         options: {
           userAttributes: {
-            'custom:username': username,
             email
           },
-          autoSignIn: true
+          autoSignIn: false
         }
       });
+      
+      console.log('Cognito signup result:', result);
       return { success: true };
     } catch (error: any) {
+      console.error('Cognito signup error:', error);
       return {
         success: false,
-        error: error.message || 'サインアップに失敗しました',
+        error: error.message || 'サインアップに失敗しました'
       };
     }
   };
@@ -453,7 +453,6 @@ const resetPassword = async (username: string) => {
     if (AUTH_TYPE === 'cognito') {
       try {
         const session = await fetchAuthSession();
-        // v6では取得方法が変更
         const token = session.tokens?.idToken?.toString();
         
         return token ? {
@@ -487,14 +486,12 @@ const resetPassword = async (username: string) => {
       resetPassword,
       confirmResetPassword,
     } : {}),
-    // 両方の認証方式で提供する機能
     changePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// 認証フックの作成
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
