@@ -134,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
 
-  const fetchUserInfo = async () => {
+  const fetchUserInfo = async (): Promise<boolean> => {
     try {
       console.log('ユーザー情報を取得中...');
       const response = await api.get('/auth/me');
@@ -145,8 +145,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           id: response.data.id
         });
         setIsAuthenticated(true);
+        return true;
       }
-      return true;
+      return false;
     } catch (error) {
       console.error('ユーザー情報取得エラー:', error);
       setIsAuthenticated(false);
@@ -161,46 +162,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await ensureCSRFToken();
       
       const sanitizedIdentifier = sanitize(identifier);
-      const isEmail = identifier.includes('@');
       
       console.log('ログインリクエスト送信...', {
         identifier: sanitizedIdentifier,
-        isEmail: isEmail
       });
       
-      const response = await api.post('/auth/login', {
-        emailOrUsername: sanitizedIdentifier,
-        password,
-        clientType: 'web'
-      });
-      
-      console.log('ログイン成功、ユーザー情報を取得中...');
-      
-      // 少し待ってからユーザー情報を取得
-      setTimeout(async () => {
-        await fetchUserInfo();
-        router.push('/dashboard');
-      }, 500);
-      
-      return { success: true };
-    } catch (error: any) {
-      console.error('ログインエラー:', error);
-      
-      let errorMessage = 'メールアドレス/ユーザー名またはパスワードが正しくありません';
-      
-      if (error.response?.data?.error) {
-        if (error.response.data.error.includes('User is not confirmed')) {
-          errorMessage = 'アカウントが確認されていません。メールをご確認ください。';
-        } else if (error.response.data.error.includes('Incorrect username or password')) {
-          errorMessage = 'メールアドレス/ユーザー名またはパスワードが正しくありません';
-        } else {
-          errorMessage = error.response.data.error;
+      try {
+        const response = await api.post('/auth/login', {
+          emailOrUsername: sanitizedIdentifier,
+          password,
+          clientType: 'web'
+        });
+        
+        console.log('ログイン成功、ユーザー情報を取得中...');
+        
+        // ユーザー情報取得を試みる
+        try {
+          const userSuccess = await fetchUserInfo();
+          
+          if (userSuccess) {
+            // 成功を返すのみで、リダイレクトはしない
+            return { success: true };
+          } else {
+            return { 
+              success: false, 
+              error: 'ユーザー情報の取得に失敗しました。再度ログインしてください。'
+            };
+          }
+        } catch (userError) {
+          console.error('ユーザー情報取得エラー:', userError);
+          return { 
+            success: false, 
+            error: 'ログインは成功しましたが、ユーザー情報の取得に失敗しました。'
+          };
         }
+      } catch (error: any) {
+        console.error('ログインエラー:', error);
+        
+        let errorMessage = 'メールアドレス/ユーザー名またはパスワードが正しくありません';
+        
+        if (error.response?.data?.error) {
+          errorMessage = error.response.data.error;
+          
+          if (errorMessage === "Authentication failed") {
+            errorMessage = 'メールアドレス/ユーザー名またはパスワードが正しくありません';
+          } else if (errorMessage.includes("UserNotConfirmedException")) {
+            errorMessage = 'アカウントが確認されていません。メールの確認コードで確認してください';
+          }
+        }
+        
+        return { 
+          success: false, 
+          error: errorMessage
+        };
       }
-      
+    } catch (error: any) {
+      console.error('ログイン処理中のエラー:', error);
       return { 
         success: false, 
-        error: errorMessage
+        error: 'ログイン処理中にエラーが発生しました。後でもう一度お試しください。'
       };
     } finally {
       setIsLoading(false);
@@ -237,11 +257,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           status: error.response.status,
           data: error.response.data,
         });
+        
+        let errorMessage = error.response?.data?.error || 'サインアップに失敗しました';
+        
+        // Cognitoの特定のエラーメッセージをより詳細に解析
+        if (error.response.data.details) {
+          const details = error.response.data.details;
+          
+          if (details.includes('Password did not conform with policy')) {
+            // パスワード要件エラーの詳細解析
+            if (details.includes('uppercase')) {
+              errorMessage = 'パスワードには少なくとも1つの大文字を含める必要があります';
+            } else if (details.includes('lowercase')) {
+              errorMessage = 'パスワードには少なくとも1つの小文字を含める必要があります';
+            } else if (details.includes('number')) {
+              errorMessage = 'パスワードには少なくとも1つの数字を含める必要があります';
+            } else if (details.includes('symbol')) {
+              errorMessage = 'パスワードには少なくとも1つの特殊文字を含める必要があります';
+            } else {
+              errorMessage = 'パスワードは8文字以上で、大文字・小文字・数字・記号をそれぞれ1つ以上含める必要があります';
+            }
+          } else if (details.includes('User already exists')) {
+            errorMessage = 'このメールアドレスは既に登録されています';
+          } else if (details.includes('Username already exists')) {
+            errorMessage = 'このユーザー名は既に使用されています';
+          }
+        }
+        
+        return {
+          success: false,
+          error: errorMessage
+        };
       }
       
       return {
         success: false,
-        error: error.response?.data?.error || 'サインアップに失敗しました'
+        error: '予期せぬエラーが発生しました。後でもう一度お試しください。'
       };
     } finally {
       setIsLoading(false);

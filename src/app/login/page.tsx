@@ -1,25 +1,56 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { LoginForm } from '@/components/auth/login-form';
 import { useAuth } from '@/providers/auth-provider';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const registered = searchParams.get('registered');
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
+  // 認証済みの場合のリダイレクト処理を修正
   useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      router.push('/dashboard');
-    }
-  }, [isAuthenticated, isLoading, router]);
+    let isMounted = true;
+    
+    const checkAuthAndRedirect = async () => {
+      // ロード中は何もしない
+      if (isLoading) return;
+      
+      // 認証済みかつリダイレクト中でない場合のみ処理
+      if (isAuthenticated && !isRedirecting && isMounted) {
+        setIsRedirecting(true);
+        
+        // スムーズな遷移のため、少し遅延させる
+        setTimeout(() => {
+          if (isMounted) {
+            // window.locationでなくrouterを使う
+            router.push('/dashboard');
+          }
+        }, 100);
+      }
+    };
+    
+    checkAuthAndRedirect();
+    
+    // クリーンアップ関数
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, isLoading, router, isRedirecting]);
 
+  // ロード中の表示
   if (isLoading) {
-    return <div className="flex justify-center items-center min-h-[60vh]">読み込み中...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400 mb-4" />
+        <p className="text-gray-500">読み込み中...</p>
+      </div>
+    );
   }
 
   return (

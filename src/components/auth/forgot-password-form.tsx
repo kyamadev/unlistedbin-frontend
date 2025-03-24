@@ -15,7 +15,7 @@ const forgotPasswordSchema = z.object({
   }),
 });
 
-export function ForgotPasswordForm() {
+export function ForgotPasswordForm({ onEmailSent }: { onEmailSent?: (email: string) => void }) {
   const { resetPassword } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,9 +26,12 @@ export function ForgotPasswordForm() {
     register,
     handleSubmit,
     formState: { errors },
+    watch,
   } = useForm<z.infer<typeof forgotPasswordSchema>>({
     resolver: zodResolver(forgotPasswordSchema),
   });
+
+  const email = watch('email');
 
   const onSubmit = async (data: z.infer<typeof forgotPasswordSchema>) => {
     setIsLoading(true);
@@ -43,6 +46,10 @@ export function ForgotPasswordForm() {
         if (result.destination) {
           setDestination(result.destination);
         }
+        // コードが送信されたら次のステップへ進む
+        if (onEmailSent) {
+          onEmailSent(data.email);
+        }
       } else {
         setError(result.error || 'パスワードリセットの要求に失敗しました');
       }
@@ -54,25 +61,26 @@ export function ForgotPasswordForm() {
     }
   };
 
-  if (success) {
+  if (success && !onEmailSent) {
     return (
       <div className="space-y-6 text-center">
         <div className="flex justify-center">
           <CheckCircle className="h-16 w-16 text-green-500" />
         </div>
-        <h1 className="text-2xl font-bold">パスワードリセット要求を送信しました</h1>
+        <h1 className="text-2xl font-bold">確認コードを送信しました</h1>
         <p className="text-gray-600 dark:text-gray-400">
           {destination ? (
             <>
-              確認メールを <strong>{destination}</strong> に送信しました。
+              <strong>{destination}</strong> に6桁の確認コードを送信しました。
             </>
           ) : (
-            <>メールアドレスに確認メールを送信しました。</>
+            <>メールアドレスに6桁の確認コードを送信しました。</>
           )}
-          メール内のリンクからパスワードのリセット手続きを完了してください。
         </p>
         <Button asChild className="mt-4">
-          <Link href="/login">ログイン画面に戻る</Link>
+          <Link href={`/forgot-password?email=${encodeURIComponent(email)}`}>
+            パスワードリセットを続行
+          </Link>
         </Button>
       </div>
     );
@@ -84,7 +92,7 @@ export function ForgotPasswordForm() {
         <h1 className="text-3xl font-bold">パスワードをお忘れですか？</h1>
         <p className="text-gray-500 dark:text-gray-400">
           アカウントに登録されているメールアドレスを入力してください。
-          パスワードリセット用のリンクを送信します。
+          パスワードリセット用の確認コードを送信します。
         </p>
       </div>
 
@@ -114,7 +122,7 @@ export function ForgotPasswordForm() {
         </div>
 
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? '送信中...' : 'リセットリンクを送信'}
+          {isLoading ? '送信中...' : '確認コードを送信'}
         </Button>
       </form>
 

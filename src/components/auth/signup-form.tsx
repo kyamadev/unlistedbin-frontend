@@ -8,10 +8,12 @@ import { useAuth } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { PasswordRequirements } from './password-requirements';
 
 const AUTH_TYPE = process.env.NEXT_PUBLIC_AUTH_TYPE || 'session';
 
+// パスワードバリデーションを強化
 const signupSchema = z.object({
   email: z.string().email({ 
     message: '有効なメールアドレスを入力してください' 
@@ -25,7 +27,16 @@ const signupSchema = z.object({
   
   password: z.string().min(8, {
     message: 'パスワードは8文字以上必要です',
+  }).regex(/[A-Z]/, {
+    message: 'パスワードには少なくとも1つの大文字を含める必要があります',
+  }).regex(/[a-z]/, {
+    message: 'パスワードには少なくとも1つの小文字を含める必要があります',
+  }).regex(/[0-9]/, {
+    message: 'パスワードには少なくとも1つの数字を含める必要があります',
+  }).regex(/[^A-Za-z0-9]/, {
+    message: 'パスワードには少なくとも1つの特殊文字を含める必要があります',
   }),
+  
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'パスワードが一致しません',
@@ -63,6 +74,7 @@ export function SignupForm() {
 
   const email = watch('email');
   const username = watch('username');
+  const password = watch('password');
   
   useEffect(() => {
     if (email && !username) {
@@ -124,11 +136,44 @@ export function SignupForm() {
           router.push('/login?registered=1');
         }
       } else {
-        setError(result.error || 'アカウント作成に失敗しました');
+        // Cognitoのエラーメッセージをパース
+        let errorMsg = result.error || 'アカウント作成に失敗しました';
+        
+        // パスワード要件に関するエラーメッセージを検出して表示
+        if (errorMsg.includes('Password not long enough') || 
+            errorMsg.includes('password') || 
+            errorMsg.includes('Password')) {
+          
+          if (errorMsg.includes('uppercase')) {
+            errorMsg = 'パスワードには少なくとも1つの大文字を含める必要があります';
+          } else if (errorMsg.includes('lowercase')) {
+            errorMsg = 'パスワードには少なくとも1つの小文字を含める必要があります';
+          } else if (errorMsg.includes('number')) {
+            errorMsg = 'パスワードには少なくとも1つの数字を含める必要があります';
+          } else if (errorMsg.includes('symbol')) {
+            errorMsg = 'パスワードには少なくとも1つの特殊文字を含める必要があります';
+          } else if (errorMsg.includes('long enough')) {
+            errorMsg = 'パスワードは8文字以上必要です';
+          }
+        }
+        
+        setError(errorMsg);
       }
     } catch (err: any) {
       console.error('アカウント作成中にエラーが発生しました:', err);
-      setError('アカウント作成中にエラーが発生しました');
+      let errorMsg = 'アカウント作成中にエラーが発生しました';
+      
+      // レスポンスからのエラーメッセージがあれば使用
+      if (err.response?.data?.details) {
+        errorMsg = err.response.data.details;
+        
+        // パスワード要件に関するエラーを検出
+        if (errorMsg.includes('password') || errorMsg.includes('Password')) {
+          errorMsg = 'パスワードは8文字以上で、大文字・小文字・数字・記号をそれぞれ1つ以上含める必要があります';
+        }
+      }
+      
+      setError(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -213,6 +258,9 @@ export function SignupForm() {
           {errors.password && (
             <p className="text-sm text-red-500">{errors.password.message}</p>
           )}
+          
+          {/* パスワード要件の表示を追加 */}
+          {password && <PasswordRequirements password={password} />}
         </div>
         
         <div className="space-y-2">
@@ -233,7 +281,12 @@ export function SignupForm() {
           className="w-full" 
           disabled={isLoading || (!!username && username.length >= 3 && isUsernameAvailable === false)}
         >
-          {isLoading ? '登録中...' : 'アカウント作成'}
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              登録中...
+            </>
+          ) : 'アカウント作成'}
         </Button>
       </form>
       
