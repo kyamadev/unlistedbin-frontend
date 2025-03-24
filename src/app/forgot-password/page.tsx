@@ -2,10 +2,10 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { SignupForm } from '@/components/auth/signup-form';
 import { useAuth } from '@/providers/auth-provider';
+import { ForgotPasswordForm } from '@/components/auth/forgot-password-form';
 
-export default function SignupPage() {
+export default function ForgotPasswordPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
@@ -22,7 +22,7 @@ export default function SignupPage() {
   return (
     <div className="max-w-md mx-auto">
       <div className="border rounded-lg p-6 shadow-sm">
-        <SignupForm />
+        <ForgotPasswordForm />
       </div>
     </div>
   );

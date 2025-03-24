@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,15 +7,14 @@ import { useAuth } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Mail } from 'lucide-react';
 
-// ログインフォームのバリデーションスキーマ
 const loginSchema = z.object({
-  username: z.string().min(3, {
-    message: 'ユーザー名は3文字以上必要です',
+  identifier: z.string().min(1, {
+    message: 'メールアドレスまたはユーザー名を入力してください',
   }),
-  password: z.string().min(6, {
-    message: 'パスワードは6文字以上必要です',
+  password: z.string().min(1, {
+    message: 'パスワードを入力してください',
   }),
 });
 
@@ -30,26 +27,35 @@ export function LoginForm() {
     register,
     handleSubmit,
     formState: { errors },
+    watch,
   } = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: '',
+      identifier: '',
       password: '',
     },
   });
+
+  const identifier = watch('identifier');
+  const isEmailLike = identifier.includes('@');
 
   const onSubmit = async (data: z.infer<typeof loginSchema>) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const result = await login(data.username, data.password);
+      console.log('ログイン試行:', {
+        identifier: data.identifier,
+        isEmailLike,
+      });
+      
+      const result = await login(data.identifier, data.password);
       if (!result.success) {
-        setError(result.error || 'ログインに失敗しました');
+        setError(result.error || 'メールアドレス/ユーザー名またはパスワードが正しくありません');
       }
     } catch (err) {
-      setError('ログイン中にエラーが発生しました');
-      console.error(err);
+      console.error('ログインエラー:', err);
+      setError('ログイン処理中にエラーが発生しました');
     } finally {
       setIsLoading(false);
     }
@@ -60,7 +66,7 @@ export function LoginForm() {
       <div className="space-y-2 text-center">
         <h1 className="text-3xl font-bold">ログイン</h1>
         <p className="text-gray-500 dark:text-gray-400">
-          アカウントにログインしてください
+          メールアドレスまたはユーザー名でログインしてください
         </p>
       </div>
       
@@ -73,14 +79,21 @@ export function LoginForm() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="username">ユーザー名</Label>
-          <Input
-            id="username"
-            placeholder="ユーザー名を入力"
-            {...register('username')}
-          />
-          {errors.username && (
-            <p className="text-sm text-red-500">{errors.username.message}</p>
+          <Label htmlFor="identifier">メールアドレスまたはユーザー名</Label>
+          <div className="relative">
+            <Input
+              id="identifier"
+              type={isEmailLike ? "email" : "text"}
+              placeholder="メールアドレスまたはユーザー名を入力"
+              {...register('identifier')}
+              className={isEmailLike ? "pl-10" : ""}
+            />
+            {isEmailLike && (
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            )}
+          </div>
+          {errors.identifier && (
+            <p className="text-sm text-red-500">{errors.identifier.message}</p>
           )}
         </div>
         

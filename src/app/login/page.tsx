@@ -12,7 +12,6 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const registered = searchParams.get('registered');
 
-  // 認証済みの場合はダッシュボードにリダイレクト
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
       router.push('/dashboard');

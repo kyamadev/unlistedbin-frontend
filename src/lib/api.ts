@@ -1,51 +1,36 @@
 import axios from 'axios';
-import { fetchAuthSession } from '@aws-amplify/auth';
+import { addCSRFToken, ensureCSRFToken } from './csrf';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
-const AUTH_TYPE = process.env.NEXT_PUBLIC_AUTH_TYPE || 'session';
-
-const getAuthHeaders = async () => {
-  if (AUTH_TYPE === 'cognito') {
-    try {
-      const { tokens } = await fetchAuthSession();
-      if (tokens?.idToken) {
-        return {
-          Authorization: `Bearer ${tokens.idToken.toString()}`,
-        };
-      }
-      console.warn('ID token not found in auth session');
-      return {};
-    } catch (error) {
-      console.error('認証トークン取得エラー:', error);
-      return {};
-    }
-  }
-  return {};
-};
 
 const api = axios.create({
   baseURL: API_URL,
-  withCredentials: true, // セッションCookieを使用
+  withCredentials: true,
 });
 
-api.interceptors.request.use(async (config) => {
-  if (AUTH_TYPE === 'cognito') {
-    try {
-      const session = await fetchAuthSession();
-      const token = session.tokens?.idToken?.toString();
-      
-      if (token) {
-        console.log('Adding auth token to request');
-        config.headers.Authorization = `Bearer ${token}`;
-      } else {
-        console.log('No auth token available');
+api.interceptors.request.use(
+  addCSRFToken,
+  (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      if (error.response.status === 401) {
+        // 認証情報をリセットするなどの処理が必要な場合はここで行う
       }
-    } catch (error) {
-      console.error('Error fetching auth session:', error);
+      
+      if (error.response.status === 403 && 
+          error.response.data?.error?.includes('CSRF')) {
+        console.error('CSRF検証エラー、トークンを再取得します');
+        ensureCSRFToken();
+      }
     }
+    
+    return Promise.reject(error);
   }
-  return config;
-});
+);
 
 export interface Repository {
   id?: number;
@@ -57,10 +42,12 @@ export interface Repository {
   updated_at?: string;
 }
 
-export interface FileEntry {
-  name: string;
-  isDirectory: boolean;
-  path: string;
+export interface FileContents {
+  username: string;
+  repo_uuid: string;
+  filepath: string;
+  data: string;
+  isDirectory: false;
 }
 
 export interface DirectoryContents {
@@ -69,14 +56,6 @@ export interface DirectoryContents {
   directory: string;
   entries: string[];
   isDirectory: true;
-}
-
-export interface FileContents {
-  username: string;
-  repo_uuid: string;
-  filepath: string;
-  data: string;
-  isDirectory: false;
 }
 
 export const repositoryApi = {
@@ -106,8 +85,9 @@ export const fileApi = {
     return response.data;
   },
 
-  // ファイルアップロード（単一ファイル）
   uploadFile: async (file: File, repoName: string, isPublic: boolean): Promise<{ repo_uuid: string }> => {
+    await ensureCSRFToken();
+    
     const formData = new FormData();
     formData.append('file', file);
     formData.append('repository_name', repoName);
@@ -121,8 +101,9 @@ export const fileApi = {
     return response.data;
   },
 
-  // ZIPファイルアップロード
   uploadZip: async (zipFile: File, repoName: string, isPublic: boolean): Promise<{ repo_uuid: string }> => {
+    await ensureCSRFToken();
+    
     const formData = new FormData();
     formData.append('zip_file', zipFile);
     formData.append('repository_name', repoName);
