@@ -1,5 +1,5 @@
-import axios from 'axios';
-import { addCSRFToken, ensureCSRFToken } from './csrf';
+import axios, { AxiosRequestConfig } from 'axios';
+import { getCSRFToken, ensureCSRFToken } from './csrf';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
@@ -9,7 +9,28 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(
-  addCSRFToken,
+  async (config) => {
+    if (config.method !== 'get' && config.method !== 'GET') {
+      if (config.data instanceof FormData && config.headers) {
+        delete config.headers['Content-Type'];
+      }
+
+      const token = getCSRFToken();
+      if (token && config.headers) {
+        config.headers['X-CSRF-Token'] = token;
+        console.log(`${config.method?.toUpperCase()} ${config.url} - CSRFトークン設定完了:`, token.substring(0, 10) + '...');
+      } else {
+        console.warn(`${config.method?.toUpperCase()} ${config.url} - CSRFトークンが見つかりません`);
+        const newToken = await ensureCSRFToken();
+        if (newToken && config.headers) {
+          config.headers['X-CSRF-Token'] = newToken;
+          console.log(`${config.method?.toUpperCase()} ${config.url} - 新しいCSRFトークン設定完了:`, newToken.substring(0, 10) + '...');
+        }
+      }
+    }
+    
+    return config;
+  },
   (error) => Promise.reject(error)
 );
 
@@ -24,7 +45,10 @@ api.interceptors.response.use(
       if (error.response.status === 403 && 
           error.response.data?.error?.includes('CSRF')) {
         console.error('CSRF検証エラー、トークンを再取得します');
-        ensureCSRFToken();
+        // CSRFエラーの場合は新しいトークンを取得して再度リクエストを試みる
+        ensureCSRFToken().then(newToken => {
+          console.log('新しいCSRFトークンを取得しました:', newToken ? newToken.substring(0, 10) + '...' : 'なし');
+        });
       }
     }
     
@@ -65,16 +89,22 @@ export const repositoryApi = {
   },
 
   createRepository: async (data: { name: string; public: boolean }): Promise<Repository> => {
+    await ensureCSRFToken();
+    
     const response = await api.post('/repositories', data);
     return response.data;
   },
 
   updateVisibility: async (uuid: string, isPublic: boolean): Promise<Repository> => {
+    await ensureCSRFToken();
+    
     const response = await api.put(`/repositories/${uuid}/visibility`, { public: isPublic });
     return response.data;
   },
 
   deleteRepository: async (uuid: string): Promise<void> => {
+    await ensureCSRFToken();
+    
     await api.delete(`/repositories/${uuid}`);
   },
 };
@@ -93,11 +123,7 @@ export const fileApi = {
     formData.append('repository_name', repoName);
     formData.append('public', isPublic ? 'true' : 'false');
 
-    const response = await api.post('/files/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.post('/files/upload', formData);
     return response.data;
   },
 
@@ -109,11 +135,7 @@ export const fileApi = {
     formData.append('repository_name', repoName);
     formData.append('public', isPublic ? 'true' : 'false');
 
-    const response = await api.post('/files/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.post('/files/upload', formData);
     return response.data;
   },
 };
