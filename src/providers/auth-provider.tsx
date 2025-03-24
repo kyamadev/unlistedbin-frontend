@@ -157,7 +157,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (identifier: string, password: string) => {
-    setIsLoading(true);
     try {
       await ensureCSRFToken();
       
@@ -176,23 +175,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         console.log('ログイン成功、ユーザー情報を取得中...');
         
-        // ユーザー情報取得を試みる
         try {
           const userSuccess = await fetchUserInfo();
           
           if (userSuccess) {
-            // 成功を返すのみで、リダイレクトはしない
             return { success: true };
           } else {
             return { 
-              success: false, 
+              success: false,
               error: 'ユーザー情報の取得に失敗しました。再度ログインしてください。'
             };
           }
         } catch (userError) {
           console.error('ユーザー情報取得エラー:', userError);
           return { 
-            success: false, 
+            success: false,
             error: 'ログインは成功しましたが、ユーザー情報の取得に失敗しました。'
           };
         }
@@ -211,19 +208,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
         
-        return { 
-          success: false, 
+        return {
+          success: false,
           error: errorMessage
         };
       }
     } catch (error: any) {
       console.error('ログイン処理中のエラー:', error);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: 'ログイン処理中にエラーが発生しました。後でもう一度お試しください。'
       };
-    } finally {
-      setIsLoading(false);
     }
   };
   
@@ -336,20 +331,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await api.put('/auth/update-username', { newUsername: sanitizedUsername });
       
       if (response.data?.username) {
-        setUser(prev => prev ? { 
-          ...prev, 
+        setUser(prev => prev ? {
+          ...prev,
           username: sanitize(response.data.username)
         } : null);
         return { success: true };
       }
       
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: '更新に失敗しました'
       };
     } catch (error: any) {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error.response?.data?.error || 'ユーザー名の更新に失敗しました'
       };
     }
@@ -378,15 +373,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const sanitizedUsername = sanitize(username);
       const sanitizedCode = sanitize(code);
       
-      const response = await api.post('/auth/confirm-signup', { 
-        username: sanitizedUsername, 
+      const response = await api.post('/auth/confirm-signup', {
+        username: sanitizedUsername,
         confirmationCode: sanitizedCode
       });
       
       return { success: true };
     } catch (error: any) {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error.response?.data?.error || '確認コードの検証に失敗しました'
       };
     }
@@ -398,7 +393,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       const sanitizedEmail = sanitize(email);
       
-      const response = await api.post('/auth/reset-password', { 
+      const response = await api.post('/auth/reset-password', {
         username: sanitizedEmail
       });
       
@@ -439,8 +434,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       return { success: true };
     } catch (error: any) {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error.response?.data?.error || 'パスワードのリセットに失敗しました'
       };
     }

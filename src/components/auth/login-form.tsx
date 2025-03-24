@@ -1,5 +1,4 @@
 import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
@@ -9,26 +8,20 @@ import { AlertCircle, Mail, Loader2 } from 'lucide-react';
 
 export function LoginForm() {
   const { login } = useAuth();
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  // 入力フィールドへの参照を作成
   const identifierRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   
-  // 入力値を監視するための状態
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   
-  // メールアドレスかどうかを判断
   const isEmailLike = identifier.includes('@');
   
-  // フォームのバリデーション状態
   const [identifierError, setIdentifierError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  // 入力バリデーション
   const validateForm = (): boolean => {
     let isValid = true;
     
@@ -49,11 +42,9 @@ export function LoginForm() {
     return isValid;
   };
 
-  // ログイン処理
   const handleLogin = async () => {
     if (isLoading) return;
     
-    // バリデーション実行
     if (!validateForm()) {
       return;
     }
@@ -67,25 +58,20 @@ export function LoginForm() {
       const result = await login(identifier, password);
       console.log('ログイン結果:', result);
       
-      if (result.success) {
-        // 成功したらダッシュボードへ遷移 (router.pushを使用)
-        router.push('/dashboard');
-      } else {
-        // エラーメッセージを表示
+      if (!result.success) {
         setError(result.error || 'メールアドレス/ユーザー名またはパスワードが正しくありません');
+        setIsLoading(false);
       }
     } catch (err: any) {
       console.error('ログインエラー:', err);
       setError('ログイン処理中にエラーが発生しました。ネットワーク接続を確認してください。');
-    } finally {
       setIsLoading(false);
     }
   };
 
-  // Enterキー押下時のハンドラ
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      e.preventDefault(); // Enterキーのデフォルト動作を防止
+      e.preventDefault();
       handleLogin();
     }
   };
@@ -106,7 +92,6 @@ export function LoginForm() {
         </div>
       )}
 
-      {/* フォーム要素を使わずにdivで代用 */}
       <div className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="identifier">メールアドレスまたはユーザー名</Label>
@@ -121,6 +106,7 @@ export function LoginForm() {
               ref={identifierRef}
               className={isEmailLike ? "pl-10" : ""}
               autoComplete="username"
+              disabled={isLoading}
             />
             {isEmailLike && (
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -150,6 +136,7 @@ export function LoginForm() {
             onKeyDown={handleKeyDown}
             ref={passwordRef}
             autoComplete="current-password"
+            disabled={isLoading}
           />
           {passwordError && (
             <p className="text-sm text-red-500">{passwordError}</p>
