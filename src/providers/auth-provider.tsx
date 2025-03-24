@@ -9,46 +9,9 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import { Amplify } from 'aws-amplify';
-import {
-  signIn as amplifySignIn,
-  signUp as amplifySignUp,
-  signOut as amplifySignOut,
-  confirmSignUp as amplifyConfirmSignUp,
-  resetPassword as amplifyResetPassword,
-  confirmResetPassword as amplifyConfirmResetPassword,
-  updatePassword as amplifyUpdatePassword,
-  getCurrentUser,
-  fetchUserAttributes,
-  fetchAuthSession,
-} from 'aws-amplify/auth';
-
-const AUTH_TYPE = process.env.NEXT_PUBLIC_AUTH_TYPE || 'session';
+import DOMPurify from 'dompurify';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
-
-if (AUTH_TYPE === 'cognito') {
-  const userPoolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID;
-  const userPoolClientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID;
-  
-  if (userPoolId && userPoolClientId) {
-    Amplify.configure({
-      Auth: {
-        Cognito: {
-          userPoolId,
-          userPoolClientId,
-          loginWith: {
-            username: true,
-            email: true
-          }
-        }
-      }
-    });
-    console.log('Cognito configured with:', { userPoolId, userPoolClientId });
-  } else {
-    console.warn('Missing Cognito configuration:', { userPoolId, userPoolClientId });
-  }
-}
 
 export interface User {
   id?: string;
@@ -66,13 +29,80 @@ interface AuthContextType {
   checkUsername: (username: string) => Promise<boolean>;
   updateUsername: (newUsername: string) => Promise<{ success: boolean; error?: string }>;
   deleteAccount: () => Promise<boolean>;
-  confirmSignUp?: (username: string, code: string) => Promise<{ success: boolean; error?: string }>;
-  resetPassword?: (username: string) => Promise<{ success: boolean; error?: string; destination?: string }>;
-  confirmResetPassword?: (username: string, code: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
-  changePassword?: (oldPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  confirmSignUp: (username: string, code: string) => Promise<{ success: boolean; error?: string }>;
+  resetPassword: (username: string) => Promise<{ success: boolean; error?: string; destination?: string }>;
+  confirmResetPassword: (username: string, code: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  changePassword: (oldPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const getCSRFToken = (): string | null => {
+  // ブラウザ環境でなければnullを返す
+  if (typeof document === 'undefined') return null;
+  
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; csrf_token=`);
+  
+  if (parts.length === 2) {
+    const csrfToken = parts.pop()?.split(';').shift();
+    return csrfToken || null;
+  }
+  return null;
+};
+
+const sanitize = (input: string): string => {
+  if (typeof DOMPurify !== 'undefined' && DOMPurify.sanitize) {
+    return DOMPurify.sanitize(input);
+  }
+  return input;
+};
+
+
+const api = axios.create({
+  baseURL: API_URL,
+  withCredentials: true
+});
+
+api.interceptors.request.use(
+  (config) => {
+    if (config.method !== 'get') {
+      const csrfToken = getCSRFToken();
+      if (csrfToken) {
+        config.headers['X-CSRF-Token'] = csrfToken;
+      }
+      
+      if (config.data && typeof config.data === 'object') {
+        Object.keys(config.data).forEach(key => {
+          if (typeof config.data[key] === 'string') {
+            config.data[key] = sanitize(config.data[key]);
+          }
+        });
+      }
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => {
+    if (response.data && typeof response.data === 'object') {
+      Object.keys(response.data).forEach(key => {
+        if (typeof response.data[key] === 'string') {
+          response.data[key] = sanitize(response.data[key]);
+        }
+      });
+    }
+    return response;
+  },
+  async (error) => {
+    if (error.response?.status === 401) {
+      console.log('認証エラー: 有効でないセッションまたは権限がありません');
+    }
+    return Promise.reject(error);
+  }
+);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -80,323 +110,91 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
 
-  // セッション認証
-  const sessionLogin = async (username: string, password: string) => {
+  const fetchUserInfo = async () => {
     try {
-      const response = await axios.post(
-        `${API_URL}/auth/login`,
-        { username, password },
-        { withCredentials: true }
-      );
-      return { success: true };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || 'ログインに失敗しました',
-      };
+      const response = await api.get('/auth/me');
+      if (response.data) {
+        setUser({
+          username: sanitize(response.data.username),
+          email: response.data.email ? sanitize(response.data.email) : undefined,
+          id: response.data.id
+        });
+        setIsAuthenticated(true);
+      }
+      return true;
+    } catch (error) {
+      setIsAuthenticated(false);
+      setUser(null);
+      return false;
     }
   };
 
-  // Cognito認証
-  const cognitoLogin = async (username: string, password: string) => {
-    try {
-      await amplifySignIn({
-        username,
-        password,
-      });
-      
-      // ユーザー情報を取得
-      const currentUser = await getCurrentUser();
-      const userAttributes = await fetchUserAttributes();
-      
-      setUser({
-        username: userAttributes['custom:username'] || userAttributes.preferred_username || currentUser.username,
-        email: userAttributes.email,
-        id: currentUser.userId
-      });
-      
-      return { success: true };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message || 'ログインに失敗しました',
-      };
-    }
-  };
-
-  // ログイン処理
-  const login = async (username: string, password: string) => {
+  const login = async (emailOrUsername: string, password: string) => {
     setIsLoading(true);
     try {
-      let result;
+      const sanitizedUsername = sanitize(emailOrUsername);
       
-      if (AUTH_TYPE === 'cognito') {
-        result = await cognitoLogin(username, password);
-      } else {
-        result = await sessionLogin(username, password);
-      }
+      const response = await api.post('/auth/login', {
+        emailOrUsername: sanitizedUsername,
+        password,
+        clientType: 'web'
+      });
       
-      if (result.success) {
-        await checkSession();
-        router.push('/dashboard');
-      }
-      return result;
+      await fetchUserInfo();
+      router.push('/dashboard');
+      return { success: true };
+    } catch (error: any) {
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'ログインに失敗しました'
+      };
     } finally {
       setIsLoading(false);
     }
   };
 
-  // サインアップ確認（Cognito用）
-const confirmSignUp = async (username: string, code: string) => {
-  if (AUTH_TYPE !== 'cognito') {
-    return { success: false, error: 'この機能はCognito認証でのみ使用できます' };
-  }
-  
-  try {
-    console.log(`Confirming signup for user: ${username} with code: ${code}`);
-    const result = await amplifyConfirmSignUp({
-      username,
-      confirmationCode: code
-    });
-    console.log('Confirmation result:', result);
-    return { success: true };
-  } catch (error: any) {
-    console.error('Confirmation error:', error);
-    return {
-      success: false,
-      error: error.message || '確認コードの検証に失敗しました',
-    };
-  }
-};
-
-// パスワードリセット要求
-const resetPassword = async (username: string) => {
-    if (AUTH_TYPE !== 'cognito') {
-      return { success: false, error: 'この機能はCognito認証でのみ使用できます' };
-    }
-    
-    try {
-      const resetResult = await amplifyResetPassword({ username });
-      
-      let destination = '';
-      
-      if (resetResult.nextStep?.codeDeliveryDetails) {
-        destination = resetResult.nextStep.codeDeliveryDetails.destination || '';
-      }
-      
-      return {
-        success: true,
-        destination
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message || 'パスワードリセットの要求に失敗しました',
-      };
-    }
-  };
-
-  // パスワードリセット確認
-  const confirmResetPassword = async (username: string, code: string, newPassword: string) => {
-    if (AUTH_TYPE !== 'cognito') {
-      return { success: false, error: 'この機能はCognito認証でのみ使用できます' };
-    }
-    
-    try {
-      await amplifyConfirmResetPassword({
-        username,
-        confirmationCode: code,
-        newPassword
-      });
-      return { success: true };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message || 'パスワードのリセットに失敗しました',
-      };
-    }
-  };
-
-  // パスワード変更（ログイン済みユーザー用）
-  const changePassword = async (oldPassword: string, newPassword: string) => {
-    if (AUTH_TYPE === 'cognito') {
-      try {
-        await amplifyUpdatePassword({
-          oldPassword,
-          newPassword
-        });
-        return { success: true };
-      } catch (error: any) {
-        return {
-          success: false,
-          error: error.message || 'パスワードの変更に失敗しました',
-        };
-      }
-    } else {
-      // セッション認証の場合のパスワード変更
-      try {
-        await axios.put(
-          `${API_URL}/auth/change-password`,
-          { oldPassword, newPassword },
-          { withCredentials: true }
-        );
-        return { success: true };
-      } catch (error: any) {
-        return {
-          success: false,
-          error: error.response?.data?.error || 'パスワードの変更に失敗しました',
-        };
-      }
-    }
-  };
-
-  // セッションサインアップ
-  const sessionSignup = async (username: string, password: string) => {
-    try {
-      await axios.post(`${API_URL}/auth/register`, { username, password });
-      return { success: true };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || 'サインアップに失敗しました',
-      };
-    }
-  };
-
-  // Cognitoサインアップ
-  const cognitoSignup = async (username: string, password: string, email: string) => {
-    try {
-      console.log('Attempting Cognito signup with:', { username, email });
-      
-      const result = await amplifySignUp({
-        username: username,
-        password,
-        options: {
-          userAttributes: {
-            email
-          },
-          autoSignIn: false
-        }
-      });
-      
-      console.log('Cognito signup result:', result);
-      return { success: true };
-    } catch (error: any) {
-      console.error('Cognito signup error:', error);
-      return {
-        success: false,
-        error: error.message || 'サインアップに失敗しました'
-      };
-    }
-  };
-
-  // サインアップ処理
   const signup = async (username: string, password: string, email?: string) => {
     setIsLoading(true);
     try {
-      if (AUTH_TYPE === 'cognito') {
-        if (!email) {
-          return { success: false, error: 'メールアドレスが必要です' };
-        }
-        return await cognitoSignup(username, password, email);
-      } else {
-        return await sessionSignup(username, password);
-      }
+      const sanitizedUsername = sanitize(username);
+      const sanitizedEmail = email ? sanitize(email) : undefined;
+      
+      const response = await api.post('/auth/register', {
+        username: sanitizedUsername,
+        password,
+        email: sanitizedEmail
+      });
+      
+      return { success: true };
+    } catch (error: any) {
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'サインアップに失敗しました'
+      };
     } finally {
       setIsLoading(false);
     }
   };
 
-  // セッションログアウト
-  const sessionLogout = async () => {
-    try {
-      await axios.post(`${API_URL}/auth/logout`, {}, { withCredentials: true });
-      setUser(null);
-      setIsAuthenticated(false);
-    } catch (error) {
-      console.error('ログアウトエラー:', error);
-    }
-  };
-
-  // Cognitoログアウト
-  const cognitoLogout = async () => {
-    try {
-      await amplifySignOut();
-      setUser(null);
-      setIsAuthenticated(false);
-    } catch (error) {
-      console.error('ログアウトエラー:', error);
-    }
-  };
-
-  // ログアウト処理
   const logout = async () => {
     setIsLoading(true);
     try {
-      if (AUTH_TYPE === 'cognito') {
-        await cognitoLogout();
-      } else {
-        await sessionLogout();
-      }
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.error('ログアウトエラー:', error);
+    } finally {
+      setUser(null);
+      setIsAuthenticated(false);
+      setIsLoading(false);
       router.push('/login');
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  // セッション確認
-  const checkSession = async () => {
-    setIsLoading(true);
-    try {
-      if (AUTH_TYPE === 'cognito') {
-        try {
-          const currentUser = await getCurrentUser();
-          const userAttributes = await fetchUserAttributes();
-          
-          setUser({
-            username: userAttributes['custom:username'] || userAttributes.preferred_username || currentUser.username,
-            email: userAttributes.email,
-            id: currentUser.userId
-          });
-          
-          setIsAuthenticated(true);
-          return true;
-        } catch (e) {
-          setUser(null);
-          setIsAuthenticated(false);
-          return false;
-        }
-      } else {
-        try {
-          const response = await axios.get(`${API_URL}/auth/session`, {
-            withCredentials: true,
-          });
-          if (response.data?.isLoggedIn) {
-            setUser({
-              username: response.data.username,
-            });
-            setIsAuthenticated(true);
-            return true;
-          } else {
-            setUser(null);
-            setIsAuthenticated(false);
-            return false;
-          }
-        } catch (e) {
-          setUser(null);
-          setIsAuthenticated(false);
-          return false;
-        }
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ユーザー名チェック
   const checkUsername = async (username: string): Promise<boolean> => {
     try {
-      const response = await axios.get(`${API_URL}/auth/check-username?username=${username}`);
+      const sanitizedUsername = sanitize(username);
+      
+      const response = await api.get(`/auth/check-username?username=${encodeURIComponent(sanitizedUsername)}`);
       return response.data.available;
     } catch (error) {
       console.error('ユーザー名チェックエラー:', error);
@@ -404,39 +202,35 @@ const resetPassword = async (username: string) => {
     }
   };
 
-  // ユーザー名更新
   const updateUsername = async (newUsername: string) => {
     try {
-      // セッション認証の場合のみ対応
-      if (AUTH_TYPE !== 'cognito') {
-        const response = await axios.put(
-          `${API_URL}/auth/update-username`,
-          { newUsername },
-          { withCredentials: true }
-        );
-        
-        if (response.data?.username) {
-          setUser(prev => prev ? { ...prev, username: response.data.username } : null);
-          return { success: true };
-        }
+      const sanitizedUsername = sanitize(newUsername);
+      
+      const response = await api.put('/auth/update-username', { newUsername: sanitizedUsername });
+      
+      if (response.data?.username) {
+        setUser(prev => prev ? { 
+          ...prev, 
+          username: sanitize(response.data.username)
+        } : null);
+        return { success: true };
       }
       
-      return { success: false, error: '操作はサポートされていません' };
+      return { 
+        success: false, 
+        error: '更新に失敗しました'
+      };
     } catch (error: any) {
-      return {
-        success: false,
-        error: error.response?.data?.error || 'ユーザー名の更新に失敗しました',
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'ユーザー名の更新に失敗しました'
       };
     }
   };
 
-  // アカウント削除
   const deleteAccount = async (): Promise<boolean> => {
     try {
-      await axios.delete(`${API_URL}/auth/delete-account`, {
-        withCredentials: true,
-        headers: AUTH_TYPE === 'cognito' ? await getAuthHeaders() : {},
-      });
+      await api.delete('/auth/delete-account');
       
       setUser(null);
       setIsAuthenticated(false);
@@ -448,24 +242,90 @@ const resetPassword = async (username: string) => {
     }
   };
 
-  // 認証ヘッダーの取得（Cognito用）
-  const getAuthHeaders = async () => {
-    if (AUTH_TYPE === 'cognito') {
-      try {
-        const session = await fetchAuthSession();
-        const token = session.tokens?.idToken?.toString();
-        
-        return token ? {
-          Authorization: `Bearer ${token}`,
-        } : {};
-      } catch (error) {
-        return {};
-      }
+  const confirmSignUp = async (username: string, code: string) => {
+    try {
+      const sanitizedUsername = sanitize(username);
+      const sanitizedCode = sanitize(code);
+      
+      const response = await api.post('/auth/confirm-signup', { 
+        username: sanitizedUsername, 
+        confirmationCode: sanitizedCode
+      });
+      
+      return { success: true };
+    } catch (error: any) {
+      return { 
+        success: false, 
+        error: error.response?.data?.error || '確認コードの検証に失敗しました'
+      };
     }
-    return {};
   };
 
-  // 初期化時にセッションをチェック
+  const resetPassword = async (username: string) => {
+    try {
+      const sanitizedUsername = sanitize(username);
+      
+      const response = await api.post('/auth/reset-password', { username: sanitizedUsername });
+      
+      return {
+        success: true,
+        destination: response.data?.destination ? sanitize(response.data.destination) : ''
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'パスワードリセットの要求に失敗しました'
+      };
+    }
+  };
+
+  const confirmResetPassword = async (username: string, code: string, newPassword: string) => {
+    try {
+      const sanitizedUsername = sanitize(username);
+      const sanitizedCode = sanitize(code);
+      
+      await api.post('/auth/confirm-reset-password', {
+        username: sanitizedUsername,
+        confirmationCode: sanitizedCode,
+        newPassword
+      });
+      
+      return { success: true };
+    } catch (error: any) {
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'パスワードのリセットに失敗しました'
+      };
+    }
+  };
+
+  const changePassword = async (oldPassword: string, newPassword: string) => {
+    try {
+      await api.put('/auth/change-password', { oldPassword, newPassword });
+      return { success: true };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'パスワードの変更に失敗しました'
+      };
+    }
+  };
+
+  const checkSession = async () => {
+    setIsLoading(true);
+    try {
+      const success = await fetchUserInfo();
+      return success;
+    } catch (error) {
+      console.error('セッションチェックエラー:', error);
+      setUser(null);
+      setIsAuthenticated(false);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     checkSession();
   }, []);
@@ -480,12 +340,9 @@ const resetPassword = async (username: string) => {
     checkUsername,
     updateUsername,
     deleteAccount,
-    // Cognito固有の機能
-    ...(AUTH_TYPE === 'cognito' ? { 
-      confirmSignUp,
-      resetPassword,
-      confirmResetPassword,
-    } : {}),
+    confirmSignUp,
+    resetPassword,
+    confirmResetPassword,
     changePassword,
   };
 
