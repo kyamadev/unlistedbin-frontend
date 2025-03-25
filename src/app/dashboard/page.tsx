@@ -11,7 +11,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-3xl font-bold mb-2">ダッシュボード</h1>
         <p className="text-gray-500 dark:text-gray-400">
-          こんにちは、{user?.username || 'ユーザー'}さん！ あなたのリポジトリを管理できます。
+          こんにちは、{user?.username || 'ユーザー'}さん！
         </p>
       </div>
       

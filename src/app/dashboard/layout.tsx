@@ -75,17 +75,6 @@ export default function DashboardLayout({
           </Button>
           
           <Button
-            variant={isActive('/dashboard/create') ? 'default' : 'ghost'}
-            className="w-full justify-start"
-            asChild
-          >
-            <Link href="/dashboard/create">
-              <Plus className="mr-2 h-4 w-4" />
-              新規リポジトリ
-            </Link>
-          </Button>
-          
-          <Button
             variant={isActive('/dashboard/settings') ? 'default' : 'ghost'}
             className="w-full justify-start"
             asChild

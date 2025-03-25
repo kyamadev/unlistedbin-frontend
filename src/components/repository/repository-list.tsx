@@ -86,19 +86,13 @@ export function RepositoryList() {
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-8 max-w-md mx-auto">
           <h3 className="text-xl font-semibold mb-4">リポジトリがありません</h3>
           <p className="text-gray-500 dark:text-gray-400 mb-6">
-            新しいリポジトリを作成して、ファイルをアップロードしましょう。
+            ファイルをアップロードして、限定公開しましょう。
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Button asChild>
               <Link href="/dashboard/upload">
                 <FileUp className="mr-2 h-4 w-4" />
                 ファイルをアップロード
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/dashboard/create">
-                <Plus className="mr-2 h-4 w-4" />
-                空のリポジトリを作成
               </Link>
             </Button>
           </div>
@@ -112,12 +106,6 @@ export function RepositoryList() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">マイリポジトリ</h2>
         <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href="/dashboard/create">
-              <Plus className="mr-2 h-4 w-4" />
-              新規作成
-            </Link>
-          </Button>
           <Button asChild>
             <Link href="/dashboard/upload">
               <FileUp className="mr-2 h-4 w-4" />
