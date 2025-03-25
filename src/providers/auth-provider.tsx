@@ -171,11 +171,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       try {
-        // const response = await api.post('/auth/login', {
-        //   emailOrUsername: sanitizedIdentifier,
-        //   password,
-        //   clientType: 'web'
-        // });
+        const response = await api.post('/auth/login', {
+          emailOrUsername: sanitizedIdentifier,
+          password,
+          clientType: 'web'
+        });
         
         console.log('ログイン成功、ユーザー情報を取得中...');
         
@@ -183,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const userSuccess = await fetchUserInfo();
           
           if (userSuccess) {
-            return { success: true };
+            return { success: response.status === 200 };
           } else {
             return { 
               success: false,
@@ -240,14 +240,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: sanitizedEmail
       });
       
-      // const response = await api.post('/auth/register', {
-      //   username: sanitizedUsername,
-      //   password,
-      //   email: sanitizedEmail
-      // });
+      const response = await api.post('/auth/register', {
+        username: sanitizedUsername,
+        password,
+        email: sanitizedEmail
+      });
       
       console.log('サインアップ成功');
-      return { success: true };
+      return { success: response.status === 200 };
     } catch (error: any) {
       console.error('サインアップエラー:', error);
       
@@ -446,12 +446,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const sanitizedUsername = sanitize(username);
       const sanitizedCode = sanitize(code);
       
-      // const response = await api.post('/auth/confirm-signup', {
-      //   username: sanitizedUsername,
-      //   confirmationCode: sanitizedCode
-      // });
+      const response = await api.post('/auth/confirm-signup', {
+        username: sanitizedUsername,
+        confirmationCode: sanitizedCode
+      });
       
-      return { success: true };
+      return { success: response.status === 200 };
     } catch (error: any) {
       return {
         success: false,
