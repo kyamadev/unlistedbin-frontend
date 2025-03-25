@@ -17,15 +17,16 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  Pencil,
+
   Trash2,
   Clock,
   Eye,
   EyeOff,
   Loader2,
   AlertCircle,
-  Plus,
   FileUp,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 export function RepositoryList() {
@@ -33,6 +34,7 @@ export function RepositoryList() {
   const { user } = useAuth();
   const [deleteConfirm, setDeleteConfirm] = useState<Repository | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [copiedRepo, setCopiedRepo] = useState<string | null>(null);
 
   const handleVisibilityToggle = async (repo: Repository) => {
     setActionLoading(`visibility-${repo.uuid}`);
@@ -127,7 +129,7 @@ export function RepositoryList() {
                 <div className="flex items-center space-x-1">
                   {repo.public ? (
                     <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
-                      公開
+                      限定公開
                     </span>
                   ) : (
                     <span className="inline-flex items-center rounded-full bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">
@@ -153,9 +155,34 @@ export function RepositoryList() {
               </Button>
               
               <div className="flex space-x-2">
+                {repo.public && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="共有URLをコピー"
+                    onClick={() => {
+                      const shareUrl = `${window.location.origin}/${user?.username}/${repo.uuid}`;
+                      navigator.clipboard.writeText(shareUrl)
+                        .then(() => {
+                          setCopiedRepo(repo.uuid);
+                          // 2秒後に表示をリセット
+                          setTimeout(() => setCopiedRepo(null), 2000);
+                        })
+                        .catch(err => console.error('URLのコピーに失敗しました:', err));
+                    }}
+                  >
+                    {copiedRepo === repo.uuid ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4 text-blue-500" />
+                    )}
+                  </Button>
+                )}
+                
                 <Button
                   variant="ghost"
                   size="icon"
+                  title={repo.public ? "非公開にする" : "限定公開にする"}
                   onClick={() => handleVisibilityToggle(repo)}
                   disabled={actionLoading === `visibility-${repo.uuid}`}
                 >
@@ -171,6 +198,7 @@ export function RepositoryList() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  title="リポジトリを削除"
                   onClick={() => setDeleteConfirm(repo)}
                 >
                   <Trash2 className="h-4 w-4 text-red-500" />
