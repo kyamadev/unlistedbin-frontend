@@ -75,14 +75,43 @@ export function SignupForm() {
   const email = watch('email');
   const username = watch('username');
   const password = watch('password');
-  
+  // ユーザーが手動でユーザー名を変更したかどうかを追跡
+  const [usernameTouched, setUsernameTouched] = useState(false);
+  // ユーザー名フィールドにフォーカスが当たっているかを追跡
+  const [usernameFocused, setUsernameFocused] = useState(false);
+
   useEffect(() => {
-    if (email && !username) {
+    if (email && !usernameTouched && !usernameFocused) {
       const localPart = email.split('@')[0];
-      const cleanUsername = localPart.replace(/[.+]/g, '');
+      const cleanUsername = localPart.replace(/\./g, '').replace(/\+/g, '');
       setValue('username', cleanUsername);
     }
-  }, [email, username, setValue]);
+  }, [email, usernameTouched, usernameFocused, setValue]);
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    register('username').onChange(e);
+    
+    setUsernameTouched(true);
+  };
+  
+  const handleUsernameFocus = () => {
+    setUsernameFocused(true);
+  };
+  
+  const handleUsernameBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    register('username').onBlur(e);
+    
+    setUsernameFocused(false);
+    
+    if (!e.target.value) {
+      setUsernameTouched(false);
+    }
+    
+    if (e.target.value) {
+      checkUsernameAvailability();
+    }
+  };
+  
 
   const checkUsernameAvailability = async () => {
     if (!username || username.length < 3) return;
@@ -214,20 +243,18 @@ export function SignupForm() {
         
         <div className="space-y-2">
           <div className="flex justify-between">
-            <Label htmlFor="username">ユーザー名 (オプション)</Label>
+            <Label htmlFor="username">ユーザー名</Label>
             <span className="text-xs text-gray-500">自動生成されます</span>
           </div>
           <div className="relative">
-            <Input
-              id="username"
-              placeholder="ユーザー名を入力"
-              {...register('username')}
-              onBlur={(e) => {
-                if (e.target.value) {
-                  checkUsernameAvailability();
-                }
-              }}
-            />
+          <Input
+            id="username"
+            placeholder="ユーザー名を入力"
+            {...register('username')}
+            onChange={handleUsernameChange}
+            onFocus={handleUsernameFocus}
+            onBlur={handleUsernameBlur}
+          />
             {isCheckingUsername && (
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                 <div className="h-4 w-4 border-2 border-t-transparent border-blue-500 rounded-full animate-spin"></div>
