@@ -95,9 +95,9 @@ export function SignupForm() {
       setIsUsernameAvailable(isAvailable);
       
       if (!isAvailable) {
-        setFormError('username', { 
-          type: 'manual', 
-          message: 'このユーザー名は既に使用されています' 
+        setFormError('username', {
+          type: 'manual',
+          message: 'このユーザー名は既に使用されています'
         });
       } else {
         clearErrors('username');
@@ -243,7 +243,7 @@ export function SignupForm() {
             <p className="text-sm text-red-500">{errors.username.message}</p>
           )}
           <p className="text-xs text-gray-500">
-            3〜30文字の英数字。メールアドレスの代わりにログインに使用できます。
+            3〜30文字の英数字。ユーザー名は一意である必要があります。
           </p>
         </div>
         

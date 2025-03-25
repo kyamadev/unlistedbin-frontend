@@ -26,7 +26,7 @@ export function LoginForm() {
     let isValid = true;
     
     if (!identifier.trim()) {
-      setIdentifierError('メールアドレスまたはユーザー名を入力してください');
+      setIdentifierError('メールアドレスを入力してください');
       isValid = false;
     } else {
       setIdentifierError(null);
@@ -59,7 +59,7 @@ export function LoginForm() {
       console.log('ログイン結果:', result);
       
       if (!result.success) {
-        setError(result.error || 'メールアドレス/ユーザー名またはパスワードが正しくありません');
+        setError(result.error || 'メールアドレスまたはパスワードが正しくありません');
         setIsLoading(false);
       }
     } catch (err: any) {
@@ -81,7 +81,7 @@ export function LoginForm() {
       <div className="space-y-2 text-center">
         <h1 className="text-3xl font-bold">ログイン</h1>
         <p className="text-gray-500 dark:text-gray-400">
-          メールアドレスまたはユーザー名でログインしてください
+          メールアドレスでログインしてください
         </p>
       </div>
       
@@ -94,12 +94,12 @@ export function LoginForm() {
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="identifier">メールアドレスまたはユーザー名</Label>
+          <Label htmlFor="identifier">メールアドレス</Label>
           <div className="relative">
             <Input
               id="identifier"
               type={isEmailLike ? "email" : "text"}
-              placeholder="メールアドレスまたはユーザー名を入力"
+              placeholder="メールアドレスを入力"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               onKeyDown={handleKeyDown}
