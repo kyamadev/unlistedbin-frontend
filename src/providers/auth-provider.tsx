@@ -17,6 +17,8 @@ export interface User {
   id?: string;
   username: string;
   email?: string;
+  pending_email?: string;
+  email_verified?: boolean;
 }
 
 interface AuthContextType {
@@ -28,6 +30,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   checkUsername: (username: string) => Promise<boolean>;
   updateUsername: (newUsername: string) => Promise<{ success: boolean; error?: string }>;
+  updateEmail: (newEmail: string) => Promise<{ success: boolean; error?: string }>;
+  confirmEmail: (code: string) => Promise<{ success: boolean; error?: string }>;
   deleteAccount: () => Promise<boolean>;
   confirmSignUp: (username: string, code: string) => Promise<{ success: boolean; error?: string }>;
   resetPassword: (username: string) => Promise<{ success: boolean; error?: string; destination?: string }>;
@@ -350,6 +354,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateEmail = async (newEmail: string) => {
+    try {
+      await ensureCSRFToken();
+      
+      const sanitizedEmail = sanitize(newEmail);
+      
+      const response = await api.put('/auth/update-email', { newEmail: sanitizedEmail });
+      
+      if (response.data?.pending_email) {
+        setUser(prev => prev ? {
+          ...prev,
+          pending_email: sanitize(response.data.pending_email)
+        } : null);
+        return { success: true };
+      }
+      
+      return {
+        success: false,
+        error: '更新に失敗しました'
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'メールアドレスの更新に失敗しました'
+      };
+    }
+  };
+
+  const confirmEmail = async (code: string) => {
+    try {
+      await ensureCSRFToken();
+      
+      const sanitizedCode = sanitize(code);
+      
+      const response = await api.post('/auth/confirm-email', { 
+        confirmationCode: sanitizedCode 
+      });
+      
+      if (response.data?.new_email) {
+        await fetchUserInfo();
+        return { success: true };
+      }
+      
+      return {
+        success: false,
+        error: '確認に失敗しました'
+      };
+    } catch (error: any) {
+      let errorMessage = 'メールアドレスの確認に失敗しました';
+      
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+        
+        if (error.response.data.code === "EXPIRED_REQUEST") {
+          errorMessage = '確認コードの有効期限が切れています。メールアドレスの変更を再度開始してください。';
+        } else if (errorMessage.includes("CodeMismatchException")) {
+          errorMessage = '確認コードが正しくありません';
+        } else if (errorMessage.includes("ExpiredCodeException")) {
+          errorMessage = '確認コードの有効期限が切れています';
+        }
+      }
+      
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  };
+
   const deleteAccount = async (): Promise<boolean> => {
     try {
       await ensureCSRFToken();
@@ -502,6 +575,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     checkUsername,
     updateUsername,
+    updateEmail,
+    confirmEmail,
     deleteAccount,
     confirmSignUp,
     resetPassword,
