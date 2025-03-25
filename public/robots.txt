@@ -1,0 +1,8 @@
+User-agent: *
+# すべてのユーザーリポジトリパスをインデックス対象外に
+Disallow: /*/
+
+# トップページと主要ページはクロール許可
+Allow: /$
+Allow: /login$
+Allow: /signup$
