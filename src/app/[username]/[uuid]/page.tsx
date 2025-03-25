@@ -1,5 +1,3 @@
-'use client';
-
 import { FileViewer } from '@/components/file/file-viewer';
 
 interface RepositoryPageProps {
@@ -9,8 +7,9 @@ interface RepositoryPageProps {
   };
 }
 
-export default function RepositoryPage({ params }: RepositoryPageProps) {
-  const { username, uuid } = params;
+export default async function RepositoryPage({ params }: RepositoryPageProps) {
+  const resolvedParams = await Promise.resolve(params);
+  const { username, uuid } = resolvedParams;
 
   return (
     <div>

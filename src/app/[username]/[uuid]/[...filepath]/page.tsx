@@ -8,8 +8,9 @@ interface FileViewerPageProps {
   };
 }
 
-export default function FileViewerPage({ params }: FileViewerPageProps) {
-  const { username, uuid, filepath } = params;
+export default async function FileViewerPage({ params }: FileViewerPageProps) {
+  const resolvedParams = await Promise.resolve(params);
+  const { username, uuid, filepath } = resolvedParams;
   const path = filepath ? filepath.join('/') : '';
 
   return (
