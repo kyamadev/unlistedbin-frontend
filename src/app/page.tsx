@@ -8,10 +8,10 @@ export default function Home() {
       {/* ヒーローセクション */}
       <section className="text-center space-y-6 py-12">
         <h1 className="text-4xl sm:text-5xl font-bold">
-          シンプルで使いやすい<br className="sm:hidden" />ファイル共有サービス
+          Unlistedbin
         </h1>
         <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-          Unlistedbinは、ソースコードやテキストファイルをすばやく簡単に共有できるサービスです。
+          Unlistedbinは、レポジトリやテキストファイルをURLで相手に共有できるサービスです。
           登録無料、簡単利用可能！
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
@@ -57,7 +57,7 @@ export default function Home() {
             </div>
             <h3 className="text-xl font-semibold">公開設定</h3>
             <p className="text-gray-600 dark:text-gray-400">
-              リポジトリの公開/非公開設定で、共有範囲をコントロールできます。
+              リポジトリの限定公開/非公開設定で、共有URLを制御できます。
             </p>
           </div>
         </div>

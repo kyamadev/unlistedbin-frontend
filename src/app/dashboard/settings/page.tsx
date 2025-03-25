@@ -357,7 +357,7 @@ export default function SettingsPage() {
 
         {/* アカウント削除 */}
         <div className="border border-red-200 dark:border-red-900 rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-3 text-red-600 dark:text-red-400">危険ゾーン</h2>
+          <h2 className="text-lg font-semibold mb-3 text-red-600 dark:text-red-400">アカウント削除</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm">
             アカウントを削除すると、すべてのリポジトリとファイルも完全に削除されます。この操作は元に戻せません。
           </p>

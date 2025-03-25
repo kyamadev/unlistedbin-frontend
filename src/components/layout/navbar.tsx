@@ -26,12 +26,6 @@ export function Navbar() {
           </Link>
           
           <nav className="hidden md:flex items-center space-x-4">
-            <Link
-              href="/"
-              className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
-            >
-              ホーム
-            </Link>
             {isAuthenticated && (
               <Link
                 href="/dashboard"
