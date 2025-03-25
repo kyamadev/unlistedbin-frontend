@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
-import { Loader2, LayoutDashboard, Upload, Settings, Plus } from 'lucide-react';
+import { Loader2, LayoutDashboard, Upload, Settings } from 'lucide-react';
 
 export default function DashboardLayout({
   children,

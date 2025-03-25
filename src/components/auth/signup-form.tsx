@@ -46,7 +46,7 @@ const signupSchema = z.object({
 export function SignupForm() {
   const { signup, checkUsername } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<boolean>(false);
+  const [, setSuccess] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [isUsernameAvailable, setIsUsernameAvailable] = useState<boolean | null>(null);

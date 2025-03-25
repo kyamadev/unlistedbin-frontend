@@ -21,23 +21,22 @@ import {
 import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 
 const AUTH_TYPE = process.env.NEXT_PUBLIC_AUTH_TYPE || 'session';
+// Username変更は凍結。必要になったらコメントアウトを解除
 
-const usernameSchema = z.object({
-  newUsername: z.string().min(3, {
-    message: 'ユーザー名は3文字以上必要です',
-  }),
-});
+// const usernameSchema = z.object({
+//   newUsername: z.string().min(3, {
+//     message: 'ユーザー名は3文字以上必要です',
+//   }),
+// });
 
 export default function SettingsPage() {
-  const { user, updateUsername, checkUsername, deleteAccount, updateEmail, confirmEmail } = useAuth();
-  const [isUpdateSuccess, setIsUpdateSuccess] = useState(false);
-  const [isUpdateError, setIsUpdateError] = useState<string | null>(null);
-  const [isUpdateLoading, setIsUpdateLoading] = useState(false);
+  const { user, /*updateUsername, checkUsername,*/ deleteAccount, updateEmail, confirmEmail } = useAuth();
+  // const [isUpdateSuccess, setIsUpdateSuccess] = useState(false);
+  // const [isUpdateError, setIsUpdateError] = useState<string | null>(null);
+  // const [isUpdateLoading, setIsUpdateLoading] = useState(false);
   const [isEmailUpdateSuccess, setIsEmailUpdateSuccess] = useState(false);
   const [isEmailUpdateError, setIsEmailUpdateError] = useState<string | null>(null);
   const [isEmailUpdateLoading, setIsEmailUpdateLoading] = useState(false);
-  const [isEmailAvailable, setIsEmailAvailable] = useState<boolean | null>(null);
-  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [showVerificationForm, setShowVerificationForm] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
@@ -53,12 +52,6 @@ export default function SettingsPage() {
   });
 
   const {
-    register: registerEmail,
-    handleSubmit: handleEmailSubmit,
-    watch: watchEmail,
-    formState: { errors: emailErrors },
-    setError: setEmailError,
-    clearErrors: clearEmailErrors,
   } = useForm<z.infer<typeof emailSchema>>({
     resolver: zodResolver(emailSchema),
     defaultValues: {
@@ -66,31 +59,6 @@ export default function SettingsPage() {
     },
   });
 
-  const newEmail = watchEmail('newEmail');
-
-  const checkEmailAvailability = async () => {
-    if (!newEmail || !newEmail.includes('@')) return;
-    if (newEmail === user?.email) {
-      setIsEmailAvailable(null);
-      setEmailError('newEmail', {
-        type: 'manual',
-        message: '現在のメールアドレスと同じです'
-      });
-      return;
-    }
-    
-    setIsCheckingEmail(true);
-    setIsEmailAvailable(null);
-    
-    try {
-      setIsEmailAvailable(true);
-      clearEmailErrors('newEmail');
-    } catch (err) {
-      console.error('メールアドレスチェックエラー:', err);
-    } finally {
-      setIsCheckingEmail(false);
-    }
-  };
 
   const handleEmailVerification = async (e: React.FormEvent) => {
     e.preventDefault();
