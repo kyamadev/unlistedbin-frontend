@@ -139,12 +139,12 @@ export function RepositoryList() {
                 </div>
               </div>
               
-              <div className="flex items-center text-gray-500 text-sm">
+              {/* <div className="flex items-center text-gray-500 text-sm">
                 <Clock className="h-4 w-4 mr-1" />
                 <span>
                   {new Date(repo.updated_at || repo.created_at || '').toLocaleDateString()}
                 </span>
-              </div>
+              </div> */}
             </div>
             
             <div className="bg-gray-50 dark:bg-gray-800 p-4 flex justify-between">

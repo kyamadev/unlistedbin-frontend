@@ -117,7 +117,7 @@ export function FileViewer({ username, uuid, filepath = '' }: FileViewerProps) {
         href={`/${username}/${uuid}`}
         className="text-blue-500 hover:underline"
       >
-        {content?.repo_uuid || uuid}
+        {`${username}'s ${content?.repo_name || 'Repository'}`}
       </Link>
     );
     

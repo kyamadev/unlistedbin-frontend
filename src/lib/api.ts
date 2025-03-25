@@ -69,6 +69,7 @@ export interface Repository {
 export interface FileContents {
   username: string;
   repo_uuid: string;
+  repo_name: string;
   filepath: string;
   data: string;
   isDirectory: false;
@@ -77,6 +78,7 @@ export interface FileContents {
 export interface DirectoryContents {
   username: string;
   repo_uuid: string;
+  repo_name: string;
   directory: string;
   entries: string[];
   isDirectory: true;
