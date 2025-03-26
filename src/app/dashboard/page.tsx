@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/providers/auth-provider';
 import { RepositoryList } from '@/components/repository/repository-list';
+import { StorageUsage } from '@/components/storage/storage-usage';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -14,7 +15,7 @@ export default function DashboardPage() {
           こんにちは、{user?.username || 'ユーザー'}さん！
         </p>
       </div>
-      
+      <StorageUsage />
       <RepositoryList />
     </div>
   );

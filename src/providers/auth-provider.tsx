@@ -19,6 +19,9 @@ export interface User {
   email?: string;
   pending_email?: string;
   email_verified?: boolean;
+  storage_used?: number;
+  storage_limit?: number;
+  storage_percent?: number;
 }
 
 interface AuthContextType {

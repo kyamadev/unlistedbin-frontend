@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { useAuth } from '@/providers/auth-provider';
+import { formatFileSize } from '@/lib/utils';
 import { AlertCircle, Upload, File, Archive } from 'lucide-react';
 
 export function FileUploader() {
@@ -17,6 +19,11 @@ export function FileUploader() {
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const router = useRouter();
+  const { user } = useAuth();
+  const storageUsed = user?.storage_used || 0;
+  const storageLimit = user?.storage_limit || 1073741824; // 1GB
+  const remainingStorage = storageLimit - storageUsed;
+  const usagePercentage = Math.min(100, Math.floor((storageUsed / storageLimit) * 100));
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (acceptedFiles) => {
@@ -66,7 +73,11 @@ export function FileUploader() {
       }
     } catch (err: any) {
       console.error('アップロードエラー:', err);
-      setError(err.response?.data?.error || 'ファイルのアップロードに失敗しました');
+      if (err.response?.status === 403 && err.response?.data?.error?.includes('Storage limit exceeded')) {
+        setError(`ストレージ容量制限に達しました。不要なリポジトリを削除して容量を確保してください。${err.response.data.error}`);
+      } else {
+        setError(err.response?.data?.error || 'ファイルのアップロードに失敗しました');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -87,7 +98,36 @@ export function FileUploader() {
           <span>{error}</span>
         </div>
       )}
-      
+      {user && (
+        <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-md text-sm">
+          <div className="flex justify-between mb-1">
+            <span>ストレージ使用状況:</span>
+            <span className={usagePercentage > 90 ? 'text-red-500 font-medium' : ''}>
+              {formatFileSize(storageUsed)} / {formatFileSize(storageLimit)}
+              （{usagePercentage}%）
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+            <div 
+              className={`h-1.5 rounded-full ${
+                usagePercentage > 90 ? 'bg-red-500' : 
+                usagePercentage > 70 ? 'bg-yellow-500' : 'bg-blue-500'
+              }`} 
+              style={{ width: `${usagePercentage}%` }}
+            ></div>
+          </div>
+          {selectedFile && (
+            <div className="mt-2 text-xs">
+              選択ファイルサイズ: <span className="font-medium">{formatFileSize(selectedFile.size)}</span>
+              {selectedFile.size > remainingStorage && (
+                <span className="ml-2 text-red-500">
+                  ※ファイルサイズが残り容量を超えています
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="repository-name">リポジトリ名</Label>
