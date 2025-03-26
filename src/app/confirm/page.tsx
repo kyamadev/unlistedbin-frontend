@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 
-export default function ConfirmPage() {
+function ConfirmForm() {
   const [username, setUsername] = useState('');
   const [code, setCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -141,5 +141,22 @@ export default function ConfirmPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ConfirmFormFallback() {
+  return (
+    <div className="max-w-md mx-auto flex flex-col items-center justify-center py-8">
+      <Loader2 className="h-8 w-8 animate-spin text-gray-400 mb-4" />
+      <p className="text-gray-500">読み込み中...</p>
+    </div>
+  );
+}
+
+export default function ConfirmPage() {
+  return (
+    <Suspense fallback={<ConfirmFormFallback />}>
+      <ConfirmForm />
+    </Suspense>
   );
 }

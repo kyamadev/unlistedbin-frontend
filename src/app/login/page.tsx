@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { LoginForm } from '@/components/auth/login-form';
 import { useAuth } from '@/providers/auth-provider';
 import { CheckCircle, Loader2 } from 'lucide-react';
 
-export default function LoginPage() {
+function LoginContent() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -23,15 +23,6 @@ export default function LoginPage() {
   useEffect(() => {
     handleAuthRedirect();
   }, [handleAuthRedirect]);
-
-  if (isLoading && !isRedirecting) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400 mb-4" />
-        <p className="text-gray-500">読み込み中...</p>
-      </div>
-    );
-  }
 
   if (isRedirecting) {
     return (
@@ -54,5 +45,22 @@ export default function LoginPage() {
         <LoginForm />
       </div>
     </div>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <div className="max-w-md mx-auto flex flex-col items-center justify-center py-8">
+      <Loader2 className="h-8 w-8 animate-spin text-gray-400 mb-4" />
+      <p className="text-gray-500">読み込み中...</p>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginContent />
+    </Suspense>
   );
 }

@@ -1,16 +1,7 @@
 import { FileViewer } from '@/components/file/file-viewer';
 
-interface FileViewerPageProps {
-  params: {
-    username: string;
-    uuid: string;
-    filepath: string[];
-  };
-}
-
-export default async function FileViewerPage({ params }: FileViewerPageProps) {
-  const resolvedParams = await Promise.resolve(params);
-  const { username, uuid, filepath } = resolvedParams;
+export default async function FileViewerPage({ params }: any) {
+  const { username, uuid, filepath } = params;
   const path = filepath ? filepath.join('/') : '';
 
   return (
