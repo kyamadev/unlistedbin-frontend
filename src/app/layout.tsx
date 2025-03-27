@@ -7,8 +7,8 @@ import { AuthProvider } from '@/providers/auth-provider';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Unlistedbin - ファイル共有サービス',
-  description: 'シンプルで使いやすいファイル共有サービス',
+  title: 'Unlistedbin',
+  description: '限定公開コード共有サービス',
 };
 
 export default function RootLayout({
@@ -25,7 +25,7 @@ export default function RootLayout({
             <main className="flex-1 container mx-auto px-4 py-8">{children}</main>
             <footer className="border-t py-6 bg-gray-50 dark:bg-gray-900">
               <div className="container mx-auto px-4 text-center text-sm text-gray-500">
-                &copy; {new Date().getFullYear()} Unlistedbin. All rights reserved.
+                &copy; {new Date().getFullYear()} <a href="https://github.com/kyamadev" className="text-blue-500 hover:underline">kyamadev</a>
               </div>
             </footer>
           </div>
