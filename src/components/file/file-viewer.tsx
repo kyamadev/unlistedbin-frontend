@@ -356,13 +356,17 @@ export function FileViewer({ username, uuid, filepath = '' }: FileViewerProps) {
       </div>
       
       <div className="border rounded-lg overflow-hidden">
-        <div className="bg-gray-100 dark:bg-gray-800 p-3 border-b font-mono text-sm">
-          {fileContent.filepath.split('/').pop()}
-        </div>
-        
-        <div className="p-4 overflow-x-auto">
+        <div className="p-4 overflow-x-auto relative">
+          {!canDownload && (
+            <div className="absolute inset-0 z-10 bg-transparent" />
+          )}
           <pre className="text-sm">
-            <code className={`language-${language}`}>{fileContent.data}</code>
+            <code 
+              className={`language-${language}`}
+              style={!canDownload ? { userSelect: 'none' } : {}}
+            >
+              {fileContent.data}
+            </code>
           </pre>
         </div>
       </div>
