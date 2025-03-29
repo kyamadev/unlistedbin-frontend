@@ -170,7 +170,7 @@ export const fileApi = {
       method: 'GET',
       url: `${API_URL}/${username}/zip/${repoUuid}`,
       responseType: 'blob',
-      withCredentials: false // 認証情報を含めない
+      withCredentials: true
     });
     
     console.log("ZIP ダウンロード成功");
