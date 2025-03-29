@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
 import { fileApi } from '@/lib/api';
@@ -8,15 +8,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, Upload, File, Archive } from 'lucide-react';
+import { AlertCircle, Upload, File, Archive, Download, Ban } from 'lucide-react';
 
 export function FileUploader() {
   const [repositoryName, setRepositoryName] = useState('');
   const [isPublic, setIsPublic] = useState(false);
+  const [isDownloadAllowed, setIsDownloadAllowed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const router = useRouter();
+  
+  useEffect(() => {
+    if (!isPublic && isDownloadAllowed) {
+      setIsDownloadAllowed(false);
+    }
+  }, [isPublic, isDownloadAllowed]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (acceptedFiles) => {
@@ -54,9 +61,9 @@ export function FileUploader() {
       
       // ZIPファイルとその他のファイルで処理を分ける
       if (selectedFile.type === 'application/zip' || selectedFile.name.endsWith('.zip')) {
-        response = await fileApi.uploadZip(selectedFile, repositoryName, isPublic);
+        response = await fileApi.uploadZip(selectedFile, repositoryName, isPublic, isDownloadAllowed);
       } else {
-        response = await fileApi.uploadFile(selectedFile, repositoryName, isPublic);
+        response = await fileApi.uploadFile(selectedFile, repositoryName, isPublic, isDownloadAllowed);
       }
       
       if (response.repo_uuid) {
@@ -106,7 +113,27 @@ export function FileUploader() {
             checked={isPublic}
             onCheckedChange={setIsPublic}
           />
-          <Label htmlFor="public">公開リポジトリにする</Label>
+          <Label htmlFor="public">限定公開し、URLでの共有を許可する</Label>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="download-allowed"
+            checked={isDownloadAllowed}
+            onCheckedChange={setIsDownloadAllowed}
+            disabled={!isPublic}
+          />
+          <Label htmlFor="download-allowed" className="flex items-center">
+            ダウンロードを許可する 
+            {!isPublic ? (
+              <span className="ml-2 text-xs text-gray-500">
+                (非公開リポジトリではダウンロードは許可できません)
+              </span>
+            ) : !isDownloadAllowed && (
+              <span className="ml-2 text-xs text-gray-500">
+              </span>
+            )}
+          </Label>
         </div>
         
         <div 

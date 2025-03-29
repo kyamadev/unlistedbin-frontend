@@ -47,13 +47,42 @@ export function useRepositories() {
     try {
       const updated = await repositoryApi.updateVisibility(uuid, isPublic);
       
-      setRepositories(prev => 
-        prev.map(repo => repo.uuid === uuid ? { ...repo, public: isPublic } : repo)
-      );
+      setRepositories(prev => {
+        return prev.map(repo => {
+          if (repo.uuid === uuid) {
+            const newDownloadAllowed = isPublic ? repo.download_allowed : false;
+            return { 
+              ...repo, 
+              public: isPublic,
+              download_allowed: newDownloadAllowed
+            };
+          }
+          return repo;
+        });
+      });
       
       return updated;
     } catch (err) {
       console.error('リポジトリ設定更新エラー:', err);
+      throw err;
+    }
+  };
+
+  const updateDownloadPermission = async (uuid: string, isAllowed: boolean): Promise<Repository | null> => {
+    try {
+      const repo = repositories.find(r => r.uuid === uuid);
+      
+      const finalIsAllowed = (repo && repo.public) ? isAllowed : false;
+      
+      const updated = await repositoryApi.updateDownloadPermission(uuid, finalIsAllowed);
+      
+      setRepositories(prev => 
+        prev.map(repo => repo.uuid === uuid ? { ...repo, download_allowed: finalIsAllowed } : repo)
+      );
+      
+      return updated;
+    } catch (err) {
+      console.error('ダウンロード設定更新エラー:', err);
       throw err;
     }
   };
@@ -86,6 +115,7 @@ export function useRepositories() {
     fetchRepositories,
     createRepository,
     updateVisibility,
+    updateDownloadPermission,
     deleteRepository
   };
 }
