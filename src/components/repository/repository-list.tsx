@@ -7,6 +7,14 @@ import { useAuth } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Repository } from '@/lib/api';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -17,20 +25,21 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-
   Trash2,
-  // Clock,
-  Eye,
-  EyeOff,
   Loader2,
   AlertCircle,
   FileUp,
   Copy,
   Check,
+  Eye,
+  EyeOff,
+  Settings,
+  Download,
+  Ban,
 } from 'lucide-react';
 
 export function RepositoryList() {
-  const { repositories, isLoading, error, deleteRepository, updateVisibility } = useRepositories();
+  const { repositories, isLoading, error, deleteRepository, updateVisibility, updateDownloadPermission } = useRepositories();
   const { user } = useAuth();
   const [deleteConfirm, setDeleteConfirm] = useState<Repository | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -40,9 +49,30 @@ export function RepositoryList() {
     setActionLoading(`visibility-${repo.uuid}`);
     
     try {
-      await updateVisibility(repo.uuid, !repo.public);
+      const newVisibility = !repo.public;
+      await updateVisibility(repo.uuid, newVisibility);
+      
+      // 非公開に変更した場合、ダウンロード許可も自動的にオフにする
+      if (!newVisibility && repo.download_allowed) {
+        await updateDownloadPermission(repo.uuid, false);
+      }
     } catch (err) {
       console.error('リポジトリ可視性更新エラー:', err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDownloadPermissionToggle = async (repo: Repository) => {
+    // 非公開リポジトリではダウンロード許可を変更できない
+    if (!repo.public) return;
+    
+    setActionLoading(`download-${repo.uuid}`);
+    
+    try {
+      await updateDownloadPermission(repo.uuid, !repo.download_allowed);
+    } catch (err) {
+      console.error('ダウンロード設定更新エラー:', err);
     } finally {
       setActionLoading(null);
     }
@@ -61,6 +91,19 @@ export function RepositoryList() {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const copyShareUrl = (repo: Repository) => {
+    if (!repo.public) return;
+    
+    const shareUrl = `${window.location.origin}/${user?.username}/${repo.uuid}`;
+    navigator.clipboard.writeText(shareUrl)
+      .then(() => {
+        setCopiedRepo(repo.uuid);
+        // 2秒後に表示をリセット
+        setTimeout(() => setCopiedRepo(null), 2000);
+      })
+      .catch(err => console.error('URLのコピーに失敗しました:', err));
   };
 
   if (isLoading) {
@@ -126,7 +169,7 @@ export function RepositoryList() {
             <div className="p-4 border-b">
               <div className="flex justify-between items-start mb-2">
                 <h3 className="font-medium text-lg truncate">{repo.name}</h3>
-                <div className="flex items-center space-x-1">
+                <div className="flex items-center gap-2">
                   {repo.public ? (
                     <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">
                       限定公開
@@ -136,15 +179,21 @@ export function RepositoryList() {
                       非公開
                     </span>
                   )}
+                  {repo.public && (
+                    repo.download_allowed ? (
+                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20">
+                        <Download className="h-3 w-3 mr-1" />
+                        DL可
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-600/20">
+                        <Ban className="h-3 w-3 mr-1" />
+                        DL不可
+                      </span>
+                    )
+                  )}
                 </div>
               </div>
-              
-              {/* <div className="flex items-center text-gray-500 text-sm">
-                <Clock className="h-4 w-4 mr-1" />
-                <span>
-                  {new Date(repo.updated_at || repo.created_at || '').toLocaleDateString()}
-                </span>
-              </div> */}
             </div>
             
             <div className="bg-gray-50 dark:bg-gray-800 p-4 flex justify-between">
@@ -160,16 +209,7 @@ export function RepositoryList() {
                     variant="ghost"
                     size="icon"
                     title="共有URLをコピー"
-                    onClick={() => {
-                      const shareUrl = `${window.location.origin}/${user?.username}/${repo.uuid}`;
-                      navigator.clipboard.writeText(shareUrl)
-                        .then(() => {
-                          setCopiedRepo(repo.uuid);
-                          // 2秒後に表示をリセット
-                          setTimeout(() => setCopiedRepo(null), 2000);
-                        })
-                        .catch(err => console.error('URLのコピーに失敗しました:', err));
-                    }}
+                    onClick={() => copyShareUrl(repo)}
                   >
                     {copiedRepo === repo.uuid ? (
                       <Check className="h-4 w-4 text-green-500" />
@@ -179,30 +219,58 @@ export function RepositoryList() {
                   </Button>
                 )}
                 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  title={repo.public ? "非公開にする" : "限定公開にする"}
-                  onClick={() => handleVisibilityToggle(repo)}
-                  disabled={actionLoading === `visibility-${repo.uuid}`}
-                >
-                  {actionLoading === `visibility-${repo.uuid}` ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : repo.public ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-                
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  title="リポジトリを削除"
-                  onClick={() => setDeleteConfirm(repo)}
-                >
-                  <Trash2 className="h-4 w-4 text-red-500" />
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>リポジトリ設定</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    
+                    <DropdownMenuItem 
+                      onClick={() => handleVisibilityToggle(repo)}
+                      disabled={actionLoading === `visibility-${repo.uuid}`}
+                    >
+                      {actionLoading === `visibility-${repo.uuid}` ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : repo.public ? (
+                        <EyeOff className="mr-2 h-4 w-4" />
+                      ) : (
+                        <Eye className="mr-2 h-4 w-4" />
+                      )}
+                      {repo.public ? '非公開にする' : '限定公開にする'}
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuItem 
+                      onClick={() => handleDownloadPermissionToggle(repo)}
+                      disabled={actionLoading === `download-${repo.uuid}` || !repo.public}
+                    >
+                      {actionLoading === `download-${repo.uuid}` ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : repo.download_allowed ? (
+                        <Ban className="mr-2 h-4 w-4" />
+                      ) : (
+                        <Download className="mr-2 h-4 w-4" />
+                      )}
+                      {repo.download_allowed ? 'ダウンロードを禁止' : 'ダウンロードを許可'}
+                      {!repo.public && (
+                        <span className="ml-2 text-xs text-gray-500">(非公開リポジトリ)</span>
+                      )}
+                    </DropdownMenuItem>
+                    
+                    <DropdownMenuSeparator />
+                    
+                    <DropdownMenuItem 
+                      onClick={() => setDeleteConfirm(repo)}
+                      className="text-red-500 focus:text-red-500"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      削除
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>

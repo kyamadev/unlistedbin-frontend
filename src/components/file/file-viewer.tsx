@@ -5,6 +5,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { fileApi, FileContents, DirectoryContents } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/providers/auth-provider';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import Prism from 'prismjs';
 import 'prismjs/themes/prism.css';
 import 'prismjs/components/prism-javascript';
@@ -22,7 +29,7 @@ import 'prismjs/components/prism-sql';
 import 'prismjs/components/prism-c';
 import 'prismjs/components/prism-cpp';
 import 'prismjs/components/prism-java';
-import { Folder, File, ChevronRight, AlertCircle, Loader2, ChevronLeft } from 'lucide-react';
+import { Folder, File, ChevronRight, AlertCircle, Loader2, ChevronLeft, Download } from 'lucide-react';
 
 interface FileViewerProps {
   username: string;
@@ -34,8 +41,12 @@ export function FileViewer({ username, uuid, filepath = '' }: FileViewerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [content, setContent] = useState<FileContents | DirectoryContents | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const { user } = useAuth();
   const router = useRouter();
 
+  const isOwner = user?.username === username;
+  const canDownload = (content && 'download_allowed' in content && content.download_allowed === true) || isOwner;
   useEffect(() => {
     const fetchContent = async () => {
       setIsLoading(true);
@@ -145,6 +156,31 @@ export function FileViewer({ username, uuid, filepath = '' }: FileViewerProps) {
     return <div className="flex items-center overflow-x-auto py-2">{breadcrumbs}</div>;
   };
 
+  const handleDownload = async () => {
+    if (!canDownload) return;
+    
+    setIsDownloading(true);
+    try {
+      const blob = await fileApi.downloadRepository(username, uuid);
+      
+      // Blobからダウンロードリンクを作成
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${username}-${content?.repo_name || 'repository'}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // クリーンアップ
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('ダウンロードエラー:', err);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -193,8 +229,8 @@ export function FileViewer({ username, uuid, filepath = '' }: FileViewerProps) {
       <div className="space-y-4">
         {renderBreadcrumbs()}
         
-        {filepath && (
-          <div className="mb-4">
+        <div className="flex justify-between items-center flex-wrap gap-2">
+          {filepath && (
             <Button
               variant="outline"
               size="sm"
@@ -203,8 +239,39 @@ export function FileViewer({ username, uuid, filepath = '' }: FileViewerProps) {
               <ChevronLeft className="mr-2 h-4 w-4" />
               親ディレクトリへ
             </Button>
-          </div>
-        )}
+          )}
+        
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!canDownload}
+                    onClick={handleDownload}
+                    className={isDownloading ? "opacity-50" : ""}
+                  >
+                    {isDownloading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    {isDownloading ? "ダウンロード中..." : "ZIPでダウンロード"}
+                    {!content.download_allowed && isOwner && (
+                      <span className="ml-1 text-xs">(オーナー専用)</span>
+                    )}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!canDownload && (
+                <TooltipContent>
+                  <p>ダウンロードは許可されていません</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         
         <div className="border rounded-lg divide-y">
           {content.entries.length === 0 ? (
@@ -213,7 +280,7 @@ export function FileViewer({ username, uuid, filepath = '' }: FileViewerProps) {
             </div>
           ) : (
             content.entries.map((entry) => {
-              const isDirectory = !entry.includes('.');
+              const isDirectory = entry.endsWith('/');
               const entryPath = filepath ? `${filepath}/${entry}` : entry;
               
               return (
@@ -227,7 +294,7 @@ export function FileViewer({ username, uuid, filepath = '' }: FileViewerProps) {
                   ) : (
                     <File className="h-5 w-5 text-gray-500 mr-3" />
                   )}
-                  <span>{entry}</span>
+                  <span>{isDirectory ? entry.slice(0, -1) : entry}</span>
                 </Link>
               );
             })
@@ -245,7 +312,7 @@ export function FileViewer({ username, uuid, filepath = '' }: FileViewerProps) {
     <div className="space-y-4">
       {renderBreadcrumbs()}
       
-      <div className="mb-4">
+      <div className="flex justify-between items-center flex-wrap gap-2">
         <Button
           variant="outline"
           size="sm"
@@ -254,6 +321,38 @@ export function FileViewer({ username, uuid, filepath = '' }: FileViewerProps) {
           <ChevronLeft className="mr-2 h-4 w-4" />
           ディレクトリへ戻る
         </Button>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!canDownload}
+                  onClick={handleDownload}
+                  className={isDownloading ? "opacity-50" : ""}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  {isDownloading ? "ダウンロード中..." : "ZIPでダウンロード"}
+                  {/* ダウンロード不許可かつオーナーの場合のみ表示 */}
+                  {!content.download_allowed && isOwner && (
+                    <span className="ml-1 text-xs">(オーナーのみ可能)</span>
+                  )}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {!canDownload && (
+              <TooltipContent>
+                <p>ダウンロードは許可されていません</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </div>
       
       <div className="border rounded-lg overflow-hidden">
