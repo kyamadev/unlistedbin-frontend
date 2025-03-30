@@ -66,7 +66,7 @@ export function ResetPasswordForm({ email }: { email?: string }) {
       } else {
         setError(result.error || 'パスワードのリセットに失敗しました');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('パスワードリセットエラー:', err);
       setError('パスワードリセット処理中にエラーが発生しました');
     } finally {

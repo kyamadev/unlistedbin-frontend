@@ -59,8 +59,9 @@ function ConfirmForm() {
       } else {
         setError('確認機能が利用できません');
       }
-    } catch (err: any) {
-      setError(err.message || '確認処理中にエラーが発生しました');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : '確認処理中にエラーが発生しました';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

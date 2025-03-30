@@ -39,6 +39,19 @@ interface AuthContextType {
   changePassword: (oldPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
+interface AuthError {
+  response?: {
+    status?: number;
+    data?: {
+      error?: string;
+      details?: string;
+      code?: string;
+      destination?: string;
+    };
+  };
+  message?: string;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const getCSRFToken = (): string | null => {
@@ -67,7 +80,7 @@ const ensureCSRFToken = async (): Promise<string | null> => {
     const newToken = getCSRFToken();
     console.log('新しいCSRFトークンを取得:', newToken ? '成功' : '失敗');
     return newToken;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('CSRFトークン初期化エラー:', error);
     return null;
   }
@@ -117,13 +130,15 @@ api.interceptors.response.use(
   (response) => {
     return response;
   },
-  async (error) => {
-    if (error.response?.status === 401) {
+  async (error: unknown) => {
+    const axiosError = error as AuthError;
+    
+    if (axiosError.response?.status === 401) {
       console.log('認証エラー: 有効でないセッションまたは権限がありません');
     }
     
-    if (error.response?.status === 403 && 
-        error.response?.data?.error?.includes('CSRF')) {
+    if (axiosError.response?.status === 403 && 
+        axiosError.response?.data?.error?.includes('CSRF')) {
       console.error('CSRF検証エラー - 新しいトークンを取得します');
       await ensureCSRFToken();
     }
@@ -152,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return true;
       }
       return false;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('ユーザー情報取得エラー:', error);
       setIsAuthenticated(false);
       setUser(null);
@@ -190,20 +205,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               error: 'ユーザー情報の取得に失敗しました。再度ログインしてください。'
             };
           }
-        } catch (userError) {
+        } catch (userError: unknown) {
           console.error('ユーザー情報取得エラー:', userError);
           return { 
             success: false,
             error: 'ログインは成功しましたが、ユーザー情報の取得に失敗しました。'
           };
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('ログインエラー:', error);
+        const authError = error as AuthError;
         
         let errorMessage = 'メールアドレス/ユーザー名またはパスワードが正しくありません';
         
-        if (error.response?.data?.error) {
-          errorMessage = error.response.data.error;
+        if (authError.response?.data?.error) {
+          errorMessage = authError.response.data.error;
           
           if (errorMessage === "Authentication failed") {
             errorMessage = 'メールアドレス/ユーザー名またはパスワードが正しくありません';
@@ -217,7 +233,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           error: errorMessage
         };
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('ログイン処理中のエラー:', error);
       return {
         success: false,
@@ -248,20 +264,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log('サインアップ成功');
       return { success: response.status === 200 };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('サインアップエラー:', error);
+      const authError = error as AuthError;
       
-      if (error.response) {
+      if (authError.response) {
         console.error('サインアップエラーレスポンス:', {
-          status: error.response.status,
-          data: error.response.data,
+          status: authError.response.status,
+          data: authError.response.data,
         });
         
-        let errorMessage = error.response?.data?.error || 'サインアップに失敗しました';
+        let errorMessage = authError.response?.data?.error || 'サインアップに失敗しました';
         
         // Cognitoの特定のエラーメッセージをより詳細に解析
-        if (error.response.data.details) {
-          const details = error.response.data.details;
+        if (authError.response.data?.details) {
+          const details = authError.response.data.details;
           
           if (details.includes('Password did not conform with policy')) {
             // パスワード要件エラーの詳細解析
@@ -304,7 +321,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await ensureCSRFToken();
       
       await api.post('/auth/logout');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('ログアウトエラー:', error);
     } finally {
       setUser(null);
@@ -320,7 +337,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       const response = await api.get(`/auth/check-username?username=${encodeURIComponent(sanitizedUsername)}`);
       return response.data.available;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('ユーザー名チェックエラー:', error);
       return false;
     }
@@ -346,10 +363,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         success: false,
         error: '更新に失敗しました'
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const authError = error as AuthError;
       return {
         success: false,
-        error: error.response?.data?.error || 'ユーザー名の更新に失敗しました'
+        error: authError.response?.data?.error || 'ユーザー名の更新に失敗しました'
       };
     }
   };
@@ -374,10 +392,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         success: false,
         error: '更新に失敗しました'
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const authError = error as AuthError;
       return {
         success: false,
-        error: error.response?.data?.error || 'メールアドレスの更新に失敗しました'
+        error: authError.response?.data?.error || 'メールアドレスの更新に失敗しました'
       };
     }
   };
@@ -401,13 +420,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         success: false,
         error: '確認に失敗しました'
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const authError = error as AuthError;
       let errorMessage = 'メールアドレスの確認に失敗しました';
       
-      if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
+      if (authError.response?.data?.error) {
+        errorMessage = authError.response.data.error;
         
-        if (error.response.data.code === "EXPIRED_REQUEST") {
+        if (authError.response.data.code === "EXPIRED_REQUEST") {
           errorMessage = '確認コードの有効期限が切れています。メールアドレスの変更を再度開始してください。';
         } else if (errorMessage.includes("CodeMismatchException")) {
           errorMessage = '確認コードが正しくありません';
@@ -433,7 +453,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAuthenticated(false);
       router.push('/');
       return true;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('アカウント削除エラー:', error);
       return false;
     }
@@ -452,10 +472,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       return { success: response.status === 200 };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const authError = error as AuthError;
       return {
         success: false,
-        error: error.response?.data?.error || '確認コードの検証に失敗しました'
+        error: authError.response?.data?.error || '確認コードの検証に失敗しました'
       };
     }
   };
@@ -474,14 +495,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         success: true,
         destination: response.data?.destination ? sanitize(response.data.destination) : ''
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const authError = error as AuthError;
       let errorMessage = 'パスワードリセットの要求に失敗しました';
       
-      if (error.response?.data?.error) {
-        if (error.response.data.error.includes('User does not exist')) {
+      if (authError.response?.data?.error) {
+        if (authError.response.data.error.includes('User does not exist')) {
           errorMessage = 'このメールアドレスに対応するアカウントが見つかりません';
         } else {
-          errorMessage = error.response.data.error;
+          errorMessage = authError.response.data.error;
         }
       }
       
@@ -506,10 +528,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const authError = error as AuthError;
       return {
         success: false,
-        error: error.response?.data?.error || 'パスワードのリセットに失敗しました'
+        error: authError.response?.data?.error || 'パスワードのリセットに失敗しました'
       };
     }
   };
@@ -520,10 +543,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       await api.put('/auth/change-password', { oldPassword, newPassword });
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const authError = error as AuthError;
       return {
         success: false,
-        error: error.response?.data?.error || 'パスワードの変更に失敗しました'
+        error: authError.response?.data?.error || 'パスワードの変更に失敗しました'
       };
     }
   };
@@ -534,7 +558,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('セッションチェック中...');
       const success = await fetchUserInfo();
       return success;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('セッションチェックエラー:', error);
       setUser(null);
       setIsAuthenticated(false);
@@ -554,7 +578,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('CSRFトークン初期化:', csrfToken ? '成功' : '失敗');
         
         await checkSession();
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('認証初期化エラー:', error);
         setUser(null);
         setIsAuthenticated(false);
