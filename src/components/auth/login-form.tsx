@@ -62,14 +62,14 @@ export function LoginForm() {
         setError(result.error || 'メールアドレスまたはパスワードが正しくありません');
         setIsLoading(false);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('ログインエラー:', err);
       setError('ログイン処理中にエラーが発生しました。ネットワーク接続を確認してください。');
       setIsLoading(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleLogin();

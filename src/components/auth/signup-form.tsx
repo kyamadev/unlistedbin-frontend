@@ -13,6 +13,17 @@ import { PasswordRequirements } from './password-requirements';
 
 const AUTH_TYPE = process.env.NEXT_PUBLIC_AUTH_TYPE || 'session';
 
+interface SignupError {
+  response?: {
+    status?: number;
+    data?: {
+      error?: string;
+      details?: string;
+    };
+  };
+  message?: string;
+}
+
 // パスワードバリデーションを強化
 const signupSchema = z.object({
   email: z.string().email({ 
@@ -188,13 +199,14 @@ export function SignupForm() {
         
         setError(errorMsg);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('アカウント作成中にエラーが発生しました:', err);
+      const signupError = err as SignupError;
+      
       let errorMsg = 'アカウント作成中にエラーが発生しました';
       
-      // レスポンスからのエラーメッセージがあれば使用
-      if (err.response?.data?.details) {
-        errorMsg = err.response.data.details;
+      if (signupError.response?.data?.details) {
+        errorMsg = signupError.response.data.details;
         
         // パスワード要件に関するエラーを検出
         if (errorMsg.includes('password') || errorMsg.includes('Password')) {

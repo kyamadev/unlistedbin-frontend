@@ -37,6 +37,15 @@ interface FileViewerProps {
   filepath?: string;
 }
 
+interface ViewerError {
+  response?: {
+    data?: {
+      error?: string;
+    };
+  };
+  message?: string;
+}
+
 export function FileViewer({ username, uuid, filepath = '' }: FileViewerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,9 +64,10 @@ export function FileViewer({ username, uuid, filepath = '' }: FileViewerProps) {
       try {
         const data = await fileApi.getContents(username, uuid, filepath);
         setContent(data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('コンテンツ取得エラー:', err);
-        setError(err.response?.data?.error || 'コンテンツの取得に失敗しました');
+        const viewerError = err as ViewerError;
+        setError(viewerError.response?.data?.error || 'コンテンツの取得に失敗しました');
       } finally {
         setIsLoading(false);
       }

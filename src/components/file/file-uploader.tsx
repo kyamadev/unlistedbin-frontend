@@ -8,7 +8,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { AlertCircle, Upload, File, Archive, Download, Ban } from 'lucide-react';
+import { AlertCircle, Upload, File, Archive } from 'lucide-react';
+
+interface UploadError {
+  response?: {
+    status?: number;
+    data?: {
+      error?: string;
+    };
+  };
+  message?: string;
+}
 
 export function FileUploader() {
   const [repositoryName, setRepositoryName] = useState('');
@@ -71,9 +81,10 @@ export function FileUploader() {
       } else {
         setError('アップロードは成功しましたが、レスポンスが不正です');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('アップロードエラー:', err);
-      setError(err.response?.data?.error || 'ファイルのアップロードに失敗しました');
+      const uploadError = err as UploadError;
+      setError(uploadError.response?.data?.error || 'ファイルのアップロードに失敗しました');
     } finally {
       setIsLoading(false);
     }

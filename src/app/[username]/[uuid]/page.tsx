@@ -1,7 +1,14 @@
 import { FileViewer } from '@/components/file/file-viewer';
 
-export default async function RepositoryPage({ params }: any) {
-  const { username, uuid } = params;
+export default async function RepositoryPage({ 
+  params 
+}: { 
+  params: Promise<{
+    username: string;
+    uuid: string;
+  }>
+}) {
+  const { username, uuid } = await params;
 
   return (
     <div>
