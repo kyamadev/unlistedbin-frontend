@@ -29,6 +29,7 @@ import 'prismjs/components/prism-sql';
 import 'prismjs/components/prism-c';
 import 'prismjs/components/prism-cpp';
 import 'prismjs/components/prism-java';
+import 'prismjs/components/prism-dart';
 import { Folder, File, ChevronRight, AlertCircle, Loader2, ChevronLeft, Download } from 'lucide-react';
 
 interface FileViewerProps {
@@ -114,6 +115,7 @@ export function FileViewer({ username, uuid, filepath = '' }: FileViewerProps) {
       'rs': 'rust',
       'swift': 'swift',
       'txt': 'plaintext',
+      'dart': 'dart',
     };
     
     return languageMap[extension] || 'plaintext';
